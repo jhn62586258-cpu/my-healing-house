@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { OUTFITS, world, getState } from '../store'
 import { floralTex } from './textures'
+import { SafeModel, useClips } from './ModelKit'
 
 /* 2등신 비닐 피규어 느낌: 매끈한 피부(roughness 낮게) + 무광 옷 */
 const SKIN = '#f0cbb0'
@@ -367,5 +368,53 @@ export function Dad({ headRef, chestRef }) {
         </group>
       </group>
     </group>
+  )
+}
+
+/* ───────── 주인공 3D 모델 (kid.glb) ─────────
+   뒷모습이 카메라 쪽을 향하도록 모델 정면을 +z(진행 방향)에 맞춤.
+   애니메이션 클립이 있으면 걷기/대기 자동 재생, 없으면 몸 전체로 통통 걷기 연출.
+   파일이 없으면 기존 도형 캐릭터(Child)로 대체 */
+function KidMotion({ fit, outfit, children }) {
+  const g = useRef()
+  const hasClips = useClips(fit, () => world.player.speed)
+  // 반바지 색: 이름에 short/pant/bottom 이 들어간 재질만 물들임
+  useMemo(() => {
+    fit.object.traverse((o) => {
+      if (!o.isMesh) return
+      const mats = Array.isArray(o.material) ? o.material : [o.material]
+      mats.forEach((m) => {
+        if (m && /short|pant|bottom|trouser/i.test(`${m.name} ${o.name}`) && m.color) m.color.set(OUTFITS[outfit].shorts)
+      })
+    })
+  }, [fit, outfit])
+  useFrame(({ clock }, dt) => {
+    const t = clock.elapsedTime
+    const p = world.player
+    const s = p.speed
+    const sit = getState().sitting
+    const k = Math.min(1, dt * 10)
+    const bob = hasClips ? 0 : Math.abs(Math.sin(t * 11)) * 0.04 * s
+    g.current.position.y += ((sit ? -0.16 : 0) + p.sitY + bob - g.current.position.y) * k
+    g.current.rotation.z = hasClips ? 0 : Math.sin(t * 11) * 0.06 * s
+    g.current.rotation.x = sit ? 0 : s * 0.05
+  })
+  return <group ref={g}>{children}</group>
+}
+
+export function KidAvatar({ outfit }) {
+  return (
+    <SafeModel name="kid" fallback={<Child outfit={outfit} />} noPrimitive>
+      {(fit) =>
+        fit.loaded ? (
+          <>
+            <Blob />
+            <KidMotion fit={fit} outfit={outfit}>
+              <primitive object={fit.object} />
+            </KidMotion>
+          </>
+        ) : null
+      }
+    </SafeModel>
   )
 }

@@ -1,4 +1,4 @@
-# 🏡 우리 시골집 v4 — 서정적인 자연광 미니어처
+# 🏡 우리 시골집 v5 — 실제 3D 모델 거실·부엌
 
 레퍼런스 시안을 기준으로 다시 만든 3D 시골집. React + Vite + React Three Fiber, 사운드는 모두 Web Audio 합성(외부 mp3 없음).
 
@@ -33,3 +33,16 @@ npm run build
 - `src/scene/Living.jsx` `Kitchen.jsx` `BackRoom.jsx` `Yard.jsx` 공간별 소품·인터랙션
 - `src/scene/Character.jsx` 2등신 가족 / `Dogs.jsx` 강아지 / `Fx.jsx` 말풍선·김·소리 아이콘
 - `src/ui/UI.jsx` `src/styles.css` 다크 글래스모피즘 UI
+
+## 3D 모델 (v5)
+`public/models/` 에 넣은 .glb / .obj(+_tex.png) 를 불러와 거실·부엌에 배치합니다.
+- 자동 크기 보정: `Box3.setFromObject` 로 측정 → `MODELS` 표의 목표 크기로 스케일
+- 바닥 정렬: 최하단(min.y)을 바닥에, TV·전화기·바구니·뚝배기는 레이캐스트로 찾은 상판 높이에 올림
+- 엄마·아빠(OBJ): 얼굴 앞면을 레이캐스트로 찾아 ^ ^ 웃는 눈 + 분홍 볼터치 메쉬 부착
+- 아빠: 앉은 자세 모델이면 소파에 앉히고, 서 있는 모델이면 소파 옆에 세움 (깊이/키 비율로 자동 판단)
+- 주인공: GLB 안에 걷기/대기 애니메이션이 있으면 자동 재생, 없으면 몸 전체로 통통 걷기
+- 모든 모델: Suspense + 에러 바운더리, castShadow/receiveShadow = true
+- 파일이 없거나 깨지면 콘솔 경고 후 기존 도형으로 자동 대체
+
+모델이 엉뚱한 방향을 보면 `src/scene/ModelKit.jsx` 맨 위 `MODELS` 의 `rotY` 를
+`Math.PI`(뒤로), `Math.PI / 2`(옆으로) 등으로 바꾸면 됩니다. Z-up 모델은 `rotX: -Math.PI / 2`.

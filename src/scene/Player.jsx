@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { world, getState, useStore, groundY, inside as isInside, inRoom, nearDesk, showToast, standUp, BOUNDS } from '../store'
 import * as audio from '../audio/AsmrEngine'
-import { Child, FPLegs } from './Character'
+import { KidAvatar, FPLegs } from './Character'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const angDiff = (a, b) => {
@@ -277,7 +277,7 @@ export default function Player() {
 
   return (
     <>
-      <group ref={root}>{view === 'third' ? <Child outfit={outfit} /> : <FPLegs outfit={outfit} />}</group>
+      <group ref={root}>{view === 'third' ? <KidAvatar outfit={outfit} /> : <FPLegs outfit={outfit} />}</group>
       <TapMarker />
     </>
   )

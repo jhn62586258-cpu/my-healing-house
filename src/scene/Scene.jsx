@@ -15,8 +15,8 @@ import { skyTex } from './textures'
 const DAY = {
   fog: new THREE.Color('#e9dcc4'),
   hemiSky: new THREE.Color('#cfe0f0'),
-  hemiGround: new THREE.Color('#8a6a48'),
-  hemi: 0.75,
+  hemiGround: new THREE.Color('#e2b98a'), // 마루에서 반사돼 올라가는 따뜻한 빛 → 서까래 밝힘
+  hemi: 1.05,
   key: 3.4,
   keyC: new THREE.Color('#ffc98a'),
   rim: 0.35,
@@ -79,7 +79,7 @@ function Lighting() {
 
   return (
     <>
-      <hemisphereLight ref={hemi} args={['#cfe0f0', '#8a6a48', 0.75]} />
+      <hemisphereLight ref={hemi} args={['#cfe0f0', '#e2b98a', 1.05]} />
       <ambientLight ref={amb} color="#fff3e2" intensity={0.18} />
       {/* 키 라이트: 서쪽 통유리로 낮게 길게 들어오는 오후 4시 햇살 */}
       <directionalLight
@@ -122,6 +122,11 @@ function ShadowSetup() {
     t.current = 0.5
     scene.traverse((o) => {
       if (!o.isMesh) return
+      if (o.userData.forceShadow) {
+        o.castShadow = true
+        o.receiveShadow = true
+        return
+      }
       const m = Array.isArray(o.material) ? o.material[0] : o.material
       const flat = FLAT.has(o.geometry?.type)
       o.castShadow = !flat && !o.userData.noCast && !(m && m.transparent) && !(m && m.isMeshBasicMaterial) && !(m && m.toneMapped === false)

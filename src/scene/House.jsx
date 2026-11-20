@@ -7,7 +7,7 @@ import { bambooMat, jangpan, woodPlank, holeBrick, metalTile, slateRoof, lattice
 import { Box, Cyl, FadeBox, Glass, polyGeo, roundBoxGeo } from './parts'
 
 const WALL = '#ece6da'
-const DARK = '#4a3020' // 짙은 원목 기둥·서까래
+const DARK = '#5a3a26' // 짙은 원목 기둥·서까래
 const FRAME = '#c9ccce' // 은색 알루미늄 샷시
 const GREEN = '#2f7d55'
 const TOP = 3.1
@@ -424,7 +424,7 @@ export default function House() {
     return {
       tile: t({ map: metalTile(), roughness: 0.55, metalness: 0.25 }),
       corr: t({ map: slateRoof(), roughness: 0.6, metalness: 0.2 }),
-      ceil: t({ map: woodPlank('#5a3c27', [1, 1], 'ceil'), roughness: 0.8 }),
+      ceil: t({ map: woodPlank('#7a5536', [1, 1], 'ceil'), roughness: 0.8 }),
       ridge: t({ color: '#3e2620', roughness: 0.6 }),
       wood: t({ color: '#6b4429', roughness: 0.7 }),
       beam: t({ color: DARK, roughness: 0.75 }),
