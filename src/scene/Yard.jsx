@@ -7,6 +7,7 @@ import { grassTex, plaid, stoneWall } from './textures'
 import { Box, Cyl, Sph, Cap, Rod, roundBoxGeo, roundCylGeo } from './parts'
 import { Dog } from './Dogs'
 import { SpeechBubble, Hearts, SoundBadge } from './Fx'
+import { Real } from './ModelKit'
 import { pick } from './Living'
 
 const BASE = { x0: -12.6, x1: 9.6, z0: -10.4, z1: 7.4 }
@@ -300,9 +301,11 @@ function DoghouseNureongi() {
       <Cyl p={[-9.6, 0.05, -4.3]} r={0.12} rb={0.1} h={0.08} c="#c9cdd0" />
       <Cyl p={[-9.25, 0.05, -4.25]} r={0.12} rb={0.1} h={0.08} c="#c9cdd0" />
       <group position={pos} rotation={[0, 1.9, 0]} {...h}>
-        <Dog ref={dog} pose="stand" kind="jindo" color="#c79a5c" light="#e2c28e" size={0.95} leash />
-        <SpeechBubble ref={bubble} y={1.3} scale={0.8} />
-        <SoundBadge id="nureongi" p={[0, 1.0, 0]} />
+        <Real>
+          <Dog ref={dog} pose="stand" kind="jindo" color="#c79a5c" light="#e2c28e" size={0.95} leash />
+          <SpeechBubble ref={bubble} y={1.3} scale={0.8} />
+          <SoundBadge id="nureongi" p={[0, 1.0, 0]} />
+        </Real>
       </group>
       <Rod a={[-9.05, 0.5, -4.85]} b={[-9.8, 0.06, -5.2]} r={0.012} c="#b8352b" />
     </group>
@@ -442,9 +445,11 @@ function Baekgu() {
   const h = useActor('baekgu', 'talk', '🐶 감나무 아래 하얀 백구', pos, act)
   return (
     <group position={pos} rotation={[0, 1.3, 0]} {...h}>
-      <Dog ref={dog} pose="sit" kind="jindo" color="#f3efe6" light="#fbf8f2" size={1.0} leash />
-      <SpeechBubble ref={bubble} y={1.4} scale={0.8} />
-      <SoundBadge id="baekgu" p={[0, 1.12, 0]} />
+      <Real>
+        <Dog ref={dog} pose="sit" kind="jindo" color="#f3efe6" light="#fbf8f2" size={1.0} leash />
+        <SpeechBubble ref={bubble} y={1.4} scale={0.8} />
+        <SoundBadge id="baekgu" p={[0, 1.12, 0]} />
+      </Real>
     </group>
   )
 }

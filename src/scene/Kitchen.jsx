@@ -1,8 +1,8 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { world, useActor, useStore, showToast, playAmbient, FLOOR, MOM_LINES } from '../store'
+import { world, useActor, useStore, showToast, playAmbient, FLOOR, MOM_LINES, S } from '../store'
 import { Box, Cyl, Sph, roundCylGeo } from './parts'
-import { SafeModel } from './ModelKit'
+import { SafeModel, Real } from './ModelKit'
 import { Mom } from './Character'
 import { SpeechBubble, Steam, SoundBadge } from './Fx'
 import { pick } from './Living'
@@ -15,28 +15,21 @@ const CAB = '#7a5132'
 function Counter() {
   return (
     <group>
-      {/* 냉장고 */}
-      <Box p={[2.0, F + 0.88, -5.58]} s={[0.78, 1.76, 0.72]} c="#f1f0ec" r={0.35} rad={0.06} />
-      <Box p={[2.0, F + 1.22, -5.215]} s={[0.74, 0.012, 0.01]} c="#cfcac2" />
-      <Box p={[1.67, F + 1.45, -5.2]} s={[0.03, 0.3, 0.04]} c="#bdb8ae" />
-      <Box p={[1.67, F + 0.75, -5.2]} s={[0.03, 0.3, 0.04]} c="#bdb8ae" />
-      {[
-        [2.1, 1.55, '#e7b04a'],
-        [2.25, 1.4, '#7fa6c9'],
-        [1.95, 1.3, '#d9725c'],
-      ].map(([x, y, c], i) => (
-        <Box key={i} p={[x, F + y, -5.215]} s={[0.1, 0.08, 0.015]} c={c} />
-      ))}
-      {/* 옆 조리대 */}
-      <Box p={[4.88, F + 0.42, -3.9]} s={[0.62, 0.84, 2.8]} c={CAB} r={0.6} />
-      <Box p={[4.88, TOPY, -3.9]} s={[0.66, 0.04, 2.8]} c="#d8d2c6" r={0.35} />
-      {[
-        [4.88, -3.0, '#d6c8a8', 0.09],
-        [4.95, -3.3, '#b07a4a', 0.07],
-        [4.85, -4.6, '#e8e2d4', 0.12],
-      ].map(([x, z, c, r], i) => (
-        <Cyl key={i} p={[x, TOPY + 0.1, z]} r={r} h={0.2} c={c} />
-      ))}
+      {/* 냉장고 (실제 크기, 싱크대 바로 왼쪽 벽에 붙임) */}
+      <Real position={[1.95, F, -5.92]}>
+        <Box p={[0, 0.88, 0.37]} s={[0.78, 1.76, 0.72]} c="#f1f0ec" r={0.35} rad={0.06} />
+        <Box p={[0, 1.22, 0.735]} s={[0.74, 0.012, 0.01]} c="#cfcac2" />
+        <Box p={[-0.33, 1.45, 0.74]} s={[0.03, 0.3, 0.04]} c="#bdb8ae" />
+        <Box p={[-0.33, 0.75, 0.74]} s={[0.03, 0.3, 0.04]} c="#bdb8ae" />
+        {[
+          [0.1, 1.55, '#e7b04a'],
+          [0.25, 1.4, '#7fa6c9'],
+          [-0.05, 1.3, '#d9725c'],
+        ].map(([x, y, c], i) => (
+          <Box key={i} p={[x, y, 0.735]} s={[0.1, 0.08, 0.015]} c={c} />
+        ))}
+      </Real>
+      {/* (예전 하얀 옆 조리대 도형은 제거) */}
       <Dining />
       {/* 부엌 펜던트 등 */}
       <Cyl p={[3.4, 2.85, -3.6]} r={0.006} h={0.45} c="#3a2a1a" />
@@ -44,7 +37,7 @@ function Counter() {
         <meshStandardMaterial color="#f2e6cc" emissive="#ffd59a" emissiveIntensity={1.1} toneMapped={false} />
       </mesh>
       <pointLight position={[3.4, 2.4, -3.6]} color="#ffd59a" intensity={2.4} distance={6} decay={1.7} />
-      <pointLight position={[3.0, 2.4, 0.2]} color="#ffe2b8" intensity={1.6} distance={5} decay={1.7} />
+      <pointLight position={[2.6, 2.4, 0.3]} color="#ffe2b8" intensity={1.6} distance={5} decay={1.7} />
       <pointLight position={[3.4, 2.5, -2.0]} color="#ffe8cc" intensity={1.4} distance={6} decay={1.7} />
     </group>
   )
@@ -52,10 +45,11 @@ function Counter() {
 
 
 /* ───────── 주방 싱크대/수납장 (kitchencabinet.glb) + 뚝배기 ───────── */
-const CAB_POS = [3.85, F, -5.92]
+const CAB_POS = [3.8, F, -5.92]
 function NorthCounterFallback() {
   // 원래 좌표 그대로 쓰기 위해 그룹 위치를 되돌림
   return (
+    <group scale={S}>
     <group position={[-CAB_POS[0], -CAB_POS[1], -CAB_POS[2]]}>
       {/* 북쪽 조리대 */}
       <Box p={[3.87, F + 0.42, -5.68]} s={[2.62, 0.84, 0.64]} c={CAB} r={0.6} />
@@ -89,6 +83,7 @@ function NorthCounterFallback() {
         <Cyl key={x} p={[x, 2.63, -5.78]} r={0.08} rb={0.05} h={0.1} c="#efe9de" />
       ))}
     </group>
+    </group>
   )
 }
 function Cabinet() {
@@ -111,17 +106,18 @@ function Dining() {
     [-0.75, 0.42],
     [0.75, 0.42],
   ]
+  // 의자: 식탁 중심 기준 실제 거리(m)
   const chairs = [
-    [2.55, -0.72, 0],
-    [3.45, -0.72, 0],
-    [2.55, 0.92, Math.PI],
-    [3.45, 0.92, Math.PI],
+    [-0.36, -0.68, 0],
+    [0.36, -0.68, 0],
+    [-0.36, 0.68, Math.PI],
+    [0.36, 0.68, Math.PI],
   ]
   return (
     <group>
       <SafeModel
         name="diningtable"
-        position={[3.0, F, 0.1]}
+        position={[2.6, F, 0.3]}
         defaults={{ anchors: { top: 0.755 } }}
         fallback={
           <group>
@@ -156,11 +152,12 @@ function Dining() {
           />
         )}
       </SafeModel>
+      <Real position={[2.6, F, 0.3]}>
       {chairs.map(([x, z, r], i) => (
         <SafeModel
           key={i}
           name="diningchair"
-          position={[x, F, z]}
+          position={[x, 0, z]}
           rotation-y={r}
           fallback={
             <group>
@@ -173,6 +170,7 @@ function Dining() {
           }
         />
       ))}
+      </Real>
     </group>
   )
 }

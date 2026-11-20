@@ -5,7 +5,7 @@
    - 상판 높이(anchors)는 위에서 아래로 레이캐스트해서 실제 표면을 찾음
    - Suspense + ErrorBoundary : 파일이 없거나 깨져도 기본 도형으로 대체
    ───────────────────────────────────────────────────────────── */
-import { Component, Suspense, useEffect, useMemo, useRef } from 'react'
+import { Component, Suspense, createContext, useContext, useEffect, useMemo, useRef } from 'react'
 import { useFrame, useLoader } from '@react-three/fiber'
 import * as THREE from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
@@ -13,6 +13,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
+import { S } from '../store'
 
 const BASE = import.meta.env.BASE_URL || '/'
 const url = (u) => (u.startsWith('/') ? BASE.replace(/\/$/, '') + u : u)
@@ -26,19 +27,21 @@ const url = (u) => (u.startsWith('/') ? BASE.replace(/\/$/, '') + u : u)
    anchors : { 이름: [x, z, 위에서 쏘는 높이] } → 그 지점 표면 높이를 자동 측정
    face  : 눈 없는 OBJ 캐릭터에 ^ ^ 웃는 눈 + 볼터치 부착 (eyeY: 키 대비 눈 높이) */
 export const MODELS = {
-  kid: { url: '/models/kid.glb', fit: 'height', size: 0.9 },
+  // 뒷모습으로 만든 모델이라 앞면에 살구색 얼굴 패치 + ^ ^ 눈 + 볼터치를 덧댐
+  kid: { url: '/models/kid.glb', fit: 'height', size: 0.9, facePatch: { y: 0.66, r: 0.15 } },
   mom: { url: '/models/mom.obj', tex: '/models/mom_tex.png', fit: 'height', size: 1.3, face: { eyeY: 0.73, gap: 0.075 } },
-  dad: { url: '/models/dad.obj', tex: '/models/dad_tex.png', fit: 'height', size: 1.08, face: { eyeY: 0.76, gap: 0.075 } },
+  // seat: 소파 방석 윗면에 걸터앉히는 높이(m) / 앞으로 당기는 거리(m)
+  dad: { url: '/models/dad.obj', tex: '/models/dad_tex.png', fit: 'height', size: 1.08, face: { eyeY: 0.76, gap: 0.075 }, seat: { y: 0.35, z: 0.22 } },
   dog: { url: '/models/dog.obj', tex: '/models/dog_tex.png', fit: 'height', size: 0.35 },
-  sofa: { url: '/models/sofa.glb', fit: 'width', size: 1.95, maxH: 1.0 },
-  rug: { url: '/models/rug.glb', fit: 'width', size: 3.0, maxH: 0.04 },
+  sofa: { url: '/models/sofa.glb', fit: 'width', size: 1.8, maxH: 0.95 },
+  rug: { url: '/models/rug.glb', fit: 'width', size: 2.5, maxH: 0.04 },
   table: { url: '/models/table.glb', fit: 'width', size: 0.95, maxH: 0.48, anchors: { top: [0, 0, 1.5] } },
-  console: { url: '/models/console.glb', fit: 'width', size: 2.3, maxH: 0.7, align: 'back', anchors: { top: [0, 0.25, 2] } },
+  console: { url: '/models/console.glb', fit: 'width', size: 1.9, maxH: 0.65, align: 'back', anchors: { top: [0, 0.22, 2] } },
   tablelamp: { url: '/models/tablelamp.glb', fit: 'height', size: 0.5 },
   chair: { url: '/models/chair.glb', fit: 'height', size: 0.85 },
   stove: { url: '/models/stove.obj', tex: '/models/stove_tex.png', fit: 'width', size: 0.75, maxH: 1.7 },
-  kitchencabinet: { url: '/models/kitchencabinet.glb', fit: 'width', size: 2.6, maxH: 2.4, align: 'back', anchors: { counter: [0.45, 0.32, 1.25], sink: [-0.6, 0.32, 1.25] } },
-  diningtable: { url: '/models/diningtable.glb', fit: 'height', size: 0.75, maxW: 1.8, anchors: { top: [0.15, 0, 2] } },
+  kitchencabinet: { url: '/models/kitchencabinet.glb', fit: 'width', size: 2.2, maxH: 2.3, align: 'back', anchors: { counter: [0.4, 0.3, 1.25], sink: [-0.5, 0.3, 1.25] } },
+  diningtable: { url: '/models/diningtable.glb', fit: 'height', size: 0.74, maxW: 1.45, anchors: { top: [0.12, 0, 2] } },
   diningchair: { url: '/models/diningchair.glb', fit: 'height', size: 0.88 },
   basket: { url: '/models/basket.glb', fit: 'width', size: 0.42 },
   plant: { url: '/models/plant.glb', fit: 'height', size: 1.35 },
@@ -59,11 +62,41 @@ function useGLB(def) {
 function useOBJ(def) {
   const obj = useLoader(OBJLoader, url(def.url))
   const tex = useLoader(THREE.TextureLoader, url(def.tex || def.url.replace(/\.obj$/, '_tex.png')))
-  useMemo(() => {
+  const avg = useMemo(() => {
     tex.colorSpace = THREE.SRGBColorSpace
     tex.anisotropy = 4
+    tex.flipY = true
+    tex.needsUpdate = true
+    return averageColor(tex)
   }, [tex])
-  return { scene: obj, animations: [], tex }
+  return { scene: obj, animations: [], tex, avg }
+}
+
+/* 텍스처 평균색 (sRGB → linear) */
+function averageColor(tex) {
+  try {
+    const img = tex.image
+    const c = document.createElement('canvas')
+    c.width = c.height = 16
+    const g = c.getContext('2d')
+    g.drawImage(img, 0, 0, 16, 16)
+    const d = g.getImageData(0, 0, 16, 16).data
+    let r = 0
+    let gg = 0
+    let b = 0
+    let n = 0
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i + 3] < 10) continue
+      r += d[i]
+      gg += d[i + 1]
+      b += d[i + 2]
+      n++
+    }
+    if (!n) return null
+    return new THREE.Color().setRGB(r / n / 255, gg / n / 255, b / n / 255, THREE.SRGBColorSpace)
+  } catch {
+    return null
+  }
 }
 
 /* ───────── 자동 크기 · 바닥 정렬 ───────── */
@@ -87,7 +120,19 @@ export function fitModel(src, def) {
     o.receiveShadow = true
     o.userData.forceShadow = true
     if (src.tex) {
-      o.material = new THREE.MeshStandardMaterial({ map: src.tex, roughness: 0.68, metalness: 0.02 })
+      // OBJ + _tex.png : 기본 색을 순수 흰색으로 두어 텍스처 색이 그대로 나오게 (형광 노랑/주황 버그 수정)
+      const g = o.geometry
+      const hasUV = !!g.attributes.uv
+      const hasVC = !!g.attributes.color
+      o.material = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        map: hasUV ? src.tex : null,
+        vertexColors: !hasUV && hasVC,
+        roughness: 0.9,
+        metalness: 0.0,
+      })
+      // UV 가 없는 OBJ 는 텍스처 한 점만 찍혀 형광색이 되므로 텍스처 평균색으로 칠함
+      if (!hasUV && !hasVC && src.avg) o.material.color.copy(src.avg)
     } else {
       const mats = Array.isArray(o.material) ? o.material : [o.material]
       mats.forEach((m) => {
@@ -167,8 +212,20 @@ export function fitModel(src, def) {
     }
   }
 
+  // 6) 얼굴 패치 (뒷모습 모델 앞면에 살구색 얼굴을 덧댐)
+  let patch = null
+  if (def.facePatch) {
+    const h = _size.y
+    const y = h * def.facePatch.y
+    _ray.set(new THREE.Vector3(0, y, box.max.z + 1), new THREE.Vector3(0, 0, -1))
+    const hit = _ray.intersectObject(wrap, true)[0]
+    const p = hit ? hit.point.clone() : new THREE.Vector3(0, y, box.max.z)
+    patch = { p, r: h * def.facePatch.r }
+  }
+
   return {
     object: root,
+    patch,
     h: _size.y,
     w: _size.x,
     d: _size.z,
@@ -205,6 +262,35 @@ export function SmileFace({ face }) {
   )
 }
 
+/* ───────── 꼬마 얼굴 패치: 살구색 둥근 얼굴 + ^ ^ 눈 + 볼터치 ───────── */
+const SKIN_M = new THREE.MeshStandardMaterial({ color: '#f3cfb3', roughness: 0.55 })
+export function FacePatch({ patch }) {
+  if (!patch) return null
+  const { p, r } = patch
+  const eyeR = r * 0.17
+  return (
+    <group position={[p.x, p.y, p.z - r * 0.18]}>
+      {/* 앞으로 볼록한 납작 반구 */}
+      <mesh scale={[1.05, 0.95, 0.6]} material={SKIN_M}>
+        <sphereGeometry args={[r, 32, 20, 0, Math.PI * 2, 0, Math.PI / 2]} />
+      </mesh>
+      {[-1, 1].map((s) => (
+        <group key={s}>
+          <mesh position={[s * r * 0.38, r * 0.12, r * 0.565]} material={EYE_M}>
+            <torusGeometry args={[eyeR, eyeR * 0.26, 8, 18, Math.PI]} />
+          </mesh>
+          <mesh position={[s * r * 0.62, -r * 0.2, r * 0.46]} rotation-y={s * 0.5} scale={[1.3, 0.75, 0.3]} material={BLUSH_M}>
+            <sphereGeometry args={[r * 0.16, 16, 10]} />
+          </mesh>
+        </group>
+      ))}
+      <mesh position={[0, -r * 0.18, r * 0.59]} rotation-z={Math.PI} material={EYE_M}>
+        <torusGeometry args={[r * 0.08, r * 0.018, 6, 12, Math.PI]} />
+      </mesh>
+    </group>
+  )
+}
+
 /* ───────── 에러 바운더리 (파일 없음/깨짐 → 대체 도형) ───────── */
 class ModelBoundary extends Component {
   constructor(p) {
@@ -233,7 +319,7 @@ function Loaded({ def, children, onFit, place, noPrimitive }) {
   return (
     <group {...(place ? place(fit) : {})}>
       {!noPrimitive && <primitive object={fit.object} />}
-      <SmileFace face={fit.face} />
+      {!noPrimitive && <SmileFace face={fit.face} />}
       {renderKids(children, fit)}
     </group>
   )
@@ -244,8 +330,20 @@ function Loaded({ def, children, onFit, place, noPrimitive }) {
               place={(fit) => ({ position: [...] })}   // 불러온 크기에 따라 위치 조정 (선택)>
      {(fit) => <TV y={fit.anchors.top} />}
    </SafeModel>                                                       */
+/* 집 공간은 S 배로 줄였지만 가구·캐릭터는 실제 크기 → 최상위 SafeModel 에서 1/S 로 되돌림 */
+export const RealCtx = createContext(false)
+export function Real({ children, ...group }) {
+  const real = useContext(RealCtx)
+  return (
+    <group {...group} scale={real ? 1 : 1 / S}>
+      <RealCtx.Provider value={true}>{children}</RealCtx.Provider>
+    </group>
+  )
+}
+
 export function SafeModel({ name, def, fallback = null, defaults = {}, children, onFit, place, noPrimitive, ...group }) {
   const d = def || MODELS[name]
+  const real = useContext(RealCtx)
   const fb = (
     <>
       {fallback}
@@ -253,7 +351,8 @@ export function SafeModel({ name, def, fallback = null, defaults = {}, children,
     </>
   )
   return (
-    <group {...group}>
+    <group {...group} scale={real ? 1 : 1 / S}>
+      <RealCtx.Provider value={true}>
       <ModelBoundary name={name} fallback={fb}>
         <Suspense fallback={null}>
           <Loaded def={d} onFit={onFit} place={place} noPrimitive={noPrimitive}>
@@ -261,6 +360,7 @@ export function SafeModel({ name, def, fallback = null, defaults = {}, children,
           </Loaded>
         </Suspense>
       </ModelBoundary>
+      </RealCtx.Provider>
     </group>
   )
 }

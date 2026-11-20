@@ -1,7 +1,7 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { world, getState, moveTo, tapDoor, inside, doorWanted, FLOOR, DOORS } from '../store'
+import { world, getState, moveTo, tapDoor, inside, doorWanted, FLOOR, DOORS, S } from '../store'
 import * as audio from '../audio/AsmrEngine'
 import { bambooMat, jangpan, woodPlank, holeBrick, metalTile, slateRoof, latticeTex, tileWall, plaster, curtainTex } from './textures'
 import { Box, Cyl, FadeBox, Glass, polyGeo, roundBoxGeo } from './parts'
@@ -255,7 +255,7 @@ function WestGlass({ children }) {
   const a = useRef(1)
   useFrame(({ camera }, dt) => {
     const p = world.player
-    const want = getState().view === 'third' && inside(p.x, p.z) && camera.position.x < -3.95 ? 0.12 : 1
+    const want = getState().view === 'third' && inside(p.x, p.z) && camera.position.x / S < -3.95 ? 0.12 : 1
     a.current += (want - a.current) * Math.min(1, dt * 6)
     const v = a.current
     g.current.traverse((o) => {
@@ -436,12 +436,13 @@ export default function House() {
   }, [])
 
   const tmpA = useMemo(() => new THREE.Vector3(), [])
+  const tmpC = useMemo(() => new THREE.Vector3(), [])
 
   useFrame(({ camera }, dtRaw) => {
     const dt = Math.min(dtRaw, 0.05)
     const p = world.player
     const third = getState().view === 'third'
-    const c = camera.position
+    const c = tmpC.copy(camera.position).divideScalar(S) // 월드 → 공간 좌표
     // 처마: 카메라가 처마 위로 올라가 있으면 숨김
     const eaveY = 2.98 - ((-4.05 - c.x) / 3.5) * 0.4
     const block = third && c.x < -4 && c.x > -7.7 && c.z > -6.4 && c.z < 4.8 && c.y > eaveY - 0.15

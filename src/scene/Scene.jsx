@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { useStore } from '../store'
+import { useStore, S } from '../store'
 import Player, { LookControls } from './Player'
 import House from './House'
 import Living from './Living'
@@ -50,7 +50,7 @@ function Lighting() {
   useEffect(() => {
     scene.fog = new THREE.Fog('#e9dcc4', 30, 90)
     scene.add(target)
-    target.position.set(-1.5, 0, -1.5)
+    target.position.set(-1.5 * S, 0, -1.5 * S)
     key.current.target = target
     return () => scene.remove(target)
   }, [scene, target])
@@ -89,10 +89,10 @@ function Lighting() {
         color="#ffc98a"
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-15}
-        shadow-camera-right={15}
-        shadow-camera-top={13}
-        shadow-camera-bottom={-13}
+        shadow-camera-left={-12}
+        shadow-camera-right={12}
+        shadow-camera-top={10.5}
+        shadow-camera-bottom={-10.5}
         shadow-camera-near={1}
         shadow-camera-far={50}
         shadow-bias={-0.0004}
@@ -102,8 +102,8 @@ function Lighting() {
       {/* 림 라이트: 뒤쪽 하늘빛 */}
       <directionalLight ref={rim} position={[10, 9, -8]} intensity={0.35} color="#cfe2ff" />
       {/* 처마 백열등 (저녁에 켜짐) */}
-      <pointLight ref={porch} position={[-5.6, 2.55, 1.2]} color="#ffc67a" intensity={0} distance={7} decay={1.6} />
-      <mesh ref={bulb} position={[-5.6, 2.68, 1.2]} raycast={() => null} userData={{ noCast: true }}>
+      <pointLight ref={porch} position={[-5.6 * S, 2.55 * S, 1.2 * S]} color="#ffc67a" intensity={0} distance={7} decay={1.6} />
+      <mesh ref={bulb} position={[-5.6 * S, 2.68 * S, 1.2 * S]} raycast={() => null} userData={{ noCast: true }}>
         <sphereGeometry args={[0.06, 14, 10]} />
         <meshStandardMaterial color="#fff2d6" emissive="#ffc67a" emissiveIntensity={0.3} />
       </mesh>
@@ -142,13 +142,16 @@ export default function Scene() {
       <Lighting />
       <ShadowSetup />
       <LookControls />
-      <Player />
-      <House />
-      <Living />
-      <Kitchen />
-      <BackRoom />
-      <Yard />
-      <Rain />
+      {/* 집·마당 공간 전체를 S(0.78)배로 아담하게 — 가구·캐릭터는 SafeModel/Real 이 실제 크기로 유지 */}
+      <group scale={S}>
+        <Player />
+        <House />
+        <Living />
+        <Kitchen />
+        <BackRoom />
+        <Yard />
+        <Rain />
+      </group>
     </>
   )
 }

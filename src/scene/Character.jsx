@@ -1,9 +1,9 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { OUTFITS, world, getState } from '../store'
+import { OUTFITS, world, getState, S } from '../store'
 import { floralTex } from './textures'
-import { SafeModel, useClips } from './ModelKit'
+import { SafeModel, useClips, FacePatch } from './ModelKit'
 
 /* 2등신 비닐 피규어 느낌: 매끈한 피부(roughness 낮게) + 무광 옷 */
 const SKIN = '#f0cbb0'
@@ -140,7 +140,7 @@ export function Child({ outfit }) {
     legR.current.rotation.x += ((sit ? -1.45 : -sw) - legR.current.rotation.x) * k
     armL.current.rotation.x = sit ? -0.4 : -sw * 0.9
     armR.current.rotation.x = sit ? -0.4 : sw * 0.9
-    root.current.position.y += ((sit ? -0.2 : 0) + p.sitY - root.current.position.y) * k
+    root.current.position.y += ((sit ? -0.2 : 0) + p.sitY * S - root.current.position.y) * k
     upper.current.position.y = Math.abs(Math.sin(t * 11)) * 0.025 * s + Math.sin(t * 2) * 0.005
     head.current.rotation.z = Math.sin(t * 1.5) * 0.05 * (1 - s)
     head.current.rotation.x = Math.sin(t * 11) * 0.025 * s + (sit ? -0.05 : 0)
@@ -395,7 +395,7 @@ function KidMotion({ fit, outfit, children }) {
     const sit = getState().sitting
     const k = Math.min(1, dt * 10)
     const bob = hasClips ? 0 : Math.abs(Math.sin(t * 11)) * 0.04 * s
-    g.current.position.y += ((sit ? -0.16 : 0) + p.sitY + bob - g.current.position.y) * k
+    g.current.position.y += ((sit ? -0.16 : 0) + p.sitY * S + bob - g.current.position.y) * k
     g.current.rotation.z = hasClips ? 0 : Math.sin(t * 11) * 0.06 * s
     g.current.rotation.x = sit ? 0 : s * 0.05
   })
@@ -411,6 +411,8 @@ export function KidAvatar({ outfit }) {
             <Blob />
             <KidMotion fit={fit} outfit={outfit}>
               <primitive object={fit.object} />
+              {/* 뒷모습 모델 앞면: 살구색 얼굴 + ^ ^ 눈 + 볼터치 */}
+              <FacePatch patch={fit.patch} />
             </KidMotion>
           </>
         ) : null

@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { world, getState, useStore, groundY, inside as isInside, inRoom, nearDesk, showToast, standUp, BOUNDS } from '../store'
+import { world, getState, useStore, groundY, inside as isInside, inRoom, nearDesk, showToast, standUp, BOUNDS, S } from '../store'
 import * as audio from '../audio/AsmrEngine'
 import { KidAvatar, FPLegs } from './Character'
+import { Real } from './ModelKit'
 
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v))
 const angDiff = (a, b) => {
@@ -234,7 +235,8 @@ export default function Player() {
         cam.updateProjectionMatrix()
       }
       cam.rotation.order = 'YXZ'
-      cam.position.set(p.x + Math.sin(lk.yaw) * 0.08, p.y + 0.95, p.z + Math.cos(lk.yaw) * 0.08)
+      // 1인칭: 실제 꼬마 눈높이(약 0.75m) — 공간 좌표 → 월드(×S)
+      cam.position.set((p.x + Math.sin(lk.yaw) * 0.08) * S, p.y * S + 0.75 + p.sitY * S, (p.z + Math.cos(lk.yaw) * 0.08) * S)
       cam.rotation.set(lk.pitch, lk.yaw + Math.PI, 0)
       snap.current = true
     } else {
@@ -248,8 +250,8 @@ export default function Player() {
       const inside = isInside(p.x, p.z)
       const desk = nearDesk(p.x, p.z)
       // 실내: 천장 들보(y≈3.0)보다 낮은 눈높이 → 서까래가 시야를 가리지 않음
-      const tD = desk ? 2.2 : inRoom(p.x, p.z) ? 2.7 : inside ? 3.1 : 4.0
-      const tH = desk ? 1.35 : inside ? 1.7 : 2.4
+      const tD = desk ? 2.3 : inRoom(p.x, p.z) ? 2.8 : inside ? 3.2 : 4.0
+      const tH = desk ? 1.4 : inside ? 1.75 : 2.4
       const maxH = inside ? 2.2 : 4.2
       cd.dist += (tD * (portrait ? 1.12 : 1) - cd.dist) * Math.min(1, dt * 3)
       cd.h += (clamp(tH + (cd.tilt || 0) * 2, 0.9, maxH) - cd.h) * Math.min(1, dt * 4)
@@ -266,18 +268,21 @@ export default function Player() {
       if (tmp.x < -12.3) tk = Math.min(tk, (-12.3 - p.x) / ddx)
       tk = clamp(tk, 0.55, 1)
       if (tk < 1) tmp.set(p.x + ddx * tk, tmp.y + (1 - tk) * 0.8, p.z + ddz * tk)
+      tmp.multiplyScalar(S) // 공간 좌표 → 월드
       if (snap.current) {
         cam.position.copy(tmp)
         snap.current = false
       } else cam.position.lerp(tmp, 1 - Math.exp(-dt * 6))
-      look.set(p.x, p.y + (inside ? 0.85 : 0.7) + (portrait ? 0.15 : 0), p.z)
+      look.set(p.x * S, p.y * S + (inside ? 0.62 : 0.55) + (portrait ? 0.12 : 0), p.z * S)
       cam.lookAt(look)
     }
   })
 
   return (
     <>
-      <group ref={root}>{view === 'third' ? <KidAvatar outfit={outfit} /> : <FPLegs outfit={outfit} />}</group>
+      <group ref={root}>
+        <Real>{view === 'third' ? <KidAvatar outfit={outfit} /> : <FPLegs outfit={outfit} />}</Real>
+      </group>
       <TapMarker />
     </>
   )

@@ -1,16 +1,17 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { world, useActor, moveTo, useStore, showToast, playSound, playAmbient, FLOOR, DAD_LINES } from '../store'
+import { world, useActor, moveTo, useStore, showToast, playSound, playAmbient, FLOOR, DAD_LINES, S } from '../store'
 import * as audio from '../audio/AsmrEngine'
 import { rugTex, clockFace, tvScreen } from './textures'
 import { Box, Cyl, Sph, roundBoxGeo, roundCylGeo } from './parts'
-import { SafeModel } from './ModelKit'
+import { SafeModel, Real, MODELS } from './ModelKit'
 import { Dad } from './Character'
 import { Dog } from './Dogs'
 import { SpeechBubble, Hearts, Steam, SoundBadge } from './Fx'
 
 const F = FLOOR
+const CEIL = (2.95 - FLOOR) * S // 바닥~천장 실제 높이(m)
 const WOOD = '#6b4429'
 export const pick = (arr, prev) => {
   let s = arr[Math.floor(Math.random() * arr.length)]
@@ -132,7 +133,8 @@ function SofaDad() {
           fallback={<FallbackDad />}
           // 앉은 자세 모델(깊이/키 비율 큼)이면 소파 앞쪽에 발을 바닥에 두고 앉힘,
           // 서 있는 모델이면 소파 옆에 서서 TV 를 바라보게 둠
-          place={(fit) => ({ position: fit.ratio > 0.55 ? [0.15, 0, 0.12] : [1.25, 0, 0.45] })}
+          // 앉은 자세: 방석 윗면(+0.35m)에 걸터앉히고 발이 앞으로 나오게 앞으로 당김 (MODELS.dad.seat 에서 조절)
+          place={(fit) => ({ position: fit.ratio > 0.55 ? [0.1, MODELS.dad.seat.y, MODELS.dad.seat.z] : [1.15, 0, 0.45] })}
         >
           {(fit) => <SpeechBubble ref={bubble} y={(fit.loaded ? fit.h : 1.25) + 0.45} />}
         </SafeModel>
@@ -173,7 +175,7 @@ function PhoneTable() {
     shake.current = Math.max(0, shake.current - dt)
     if (handset.current) handset.current.position.y = 0.11 + (shake.current > 0 ? Math.abs(Math.sin(clock.elapsedTime * 60)) * 0.01 : 0)
   })
-  const pos = [-1.4, F + 0.4, -3.45]
+  const pos = [-1.25, F + 0.4, -3.6]
   const h = useActor('phone', 'object', '☎️ 옛날 유선 전화기 (따르릉)', pos, () => {
     playSound('phone', () => audio.ring(), { dur: 3600, once: true, fade: 900 })
     shake.current = 1.6
@@ -182,7 +184,7 @@ function PhoneTable() {
   return (
     <SafeModel
       name="table"
-      position={[-1.4, F, -3.45]}
+      position={[-1.25, F, -3.6]}
       defaults={{ anchors: { top: 0.35 } }}
       fallback={
         <group>
@@ -317,7 +319,7 @@ function StoveKettle() {
         {(fit) => (
           <>
             {/* 모델에 연통이 없으면(키가 낮으면) 천장까지 연통을 세움 */}
-            {(!fit.loaded || fit.h < 1.3) && <Cyl p={[0.12, (fit.h + 2.65 - F) / 2, -0.18]} r={0.075} h={Math.max(0.2, 2.65 - F - fit.h)} c="#2a2826" />}
+            {(!fit.loaded || fit.h < 1.3) && <Cyl p={[0.12, (fit.h + CEIL) / 2, -0.18]} r={0.075} h={Math.max(0.2, CEIL - fit.h)} c="#2a2826" />}
             <Steam on={on} p={[fit.top.x, fit.top.y + 0.02, fit.top.z]} spread={0.06} rise={0.85} size={0.2} />
             <Steam on={on} p={[fit.top.x - 0.12, fit.top.y - 0.06, fit.top.z]} n={4} spread={0.05} rise={0.7} size={0.16} />
             <SoundBadge id="kettle" p={[fit.top.x, fit.top.y + 0.45, fit.top.z]} />
@@ -403,7 +405,7 @@ function Props() {
       {/* 모서리 유칼립투스 (EucalyptusPlant.glb) */}
       <SafeModel
         name="eucalyptus"
-        position={[-3.55, F, -0.95]}
+        position={[1.0, F, -1.1]}
         fallback={
           <group>
             <mesh position={[0, 0.18, 0]} geometry={roundCylGeo(0.17, 0.13, 0.36, 24, 0.03)}>
@@ -416,10 +418,11 @@ function Props() {
         }
       />
       {/* 소파 옆 협탁 + 스탠드 (tablelamp.glb) */}
-      <Box p={[-3.72, F + 0.3, -4.05]} s={[0.5, 0.6, 0.5]} c="#5a3a24" r={0.6} />
+      <Real position={[-3.72, F, -4.05]}>
+      <Box p={[0, 0.27, 0]} s={[0.45, 0.54, 0.45]} c="#5a3a24" r={0.6} />
       <SafeModel
         name="tablelamp"
-        position={[-3.72, F + 0.6, -4.05]}
+        position={[0, 0.54, 0]}
         fallback={
           <group>
             <Cyl p={[0, 0.15, 0]} r={0.03} h={0.3} c="#c9a46a" />
@@ -431,6 +434,7 @@ function Props() {
       >
         {(fit) => <pointLight position={[0, (fit.loaded ? fit.h : 0.45) * 0.8, 0.15]} color="#ffc778" intensity={1.6} distance={3.5} decay={2} />}
       </SafeModel>
+      </Real>
       {/* 거실 한쪽 보조 의자 (chair.glb) — 통유리창 옆에서 거실을 바라봄 */}
       <SafeModel
         name="chair"
