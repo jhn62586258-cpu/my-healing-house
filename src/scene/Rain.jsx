@@ -31,7 +31,8 @@ const frag = /* glsl */ `
 
 /* 집 지붕 위를 피해서 내리는 빗줄기 */
 export default function Rain() {
-  const level = useStore((s) => s.rainLevel)
+  const on = useStore((s) => s.rainOn)
+  const level = on ? 1 : 0
   const mat = useRef()
   const geo = useRef()
   const st = useRef({ speed: 9, alpha: 0.35, len: 0.5, phase: 0 })
@@ -42,9 +43,10 @@ export default function Rain() {
     const seed = new Float32Array(MAX * 2)
     let i = 0
     while (i < MAX) {
-      const x = rnd(-17, 17)
-      const z = rnd(-10, 15)
-      if (x > -11 && x < 7.2 && z > -7 && z < 2.7) continue
+      const x = rnd(-11, 8.8)
+      const z = rnd(-8, 7.6)
+      if (x > -11.2 && x < 6.8 && z > -8 && z < 3.8) continue // 지붕·처마 밑엔 비 없음
+      if (x < -5.5 && z < 5.6 && x > -11.2) continue
       const y = Math.random() * 10
       pos.set([x, y, z, x, y, z], i * 6)
       end[i * 2] = 0
@@ -60,7 +62,7 @@ export default function Rain() {
   const uniforms = useMemo(() => ({ uPhase: { value: 0 }, uLen: { value: 0.5 }, uAlpha: { value: 0.35 } }), [])
 
   useEffect(() => {
-    if (geo.current) geo.current.setDrawRange(0, (level >= 2 ? 3200 : 800) * 2)
+    if (geo.current) geo.current.setDrawRange(0, (level ? 1100 : 0) * 2)
   }, [level])
 
   useFrame((_, dtRaw) => {
@@ -78,7 +80,7 @@ export default function Rain() {
   })
 
   return (
-    <lineSegments frustumCulled={false}>
+    <lineSegments frustumCulled={false} raycast={() => null}>
       <bufferGeometry ref={geo}>
         <bufferAttribute attach="attributes-position" args={[pos, 3]} />
         <bufferAttribute attach="attributes-aEnd" args={[end, 1]} />

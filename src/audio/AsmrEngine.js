@@ -6,7 +6,6 @@ let master = null
 const bufs = {}
 const amb = {}
 const layers = {}
-let rainLevel = 1
 
 const rnd = (a, b) => a + Math.random() * (b - a)
 
@@ -94,6 +93,8 @@ function tone(o) {
 }
 
 /* ───────── 환경음 레이어 ───────── */
+const mix = { rain: 0.75, stew: 1, kettle: 1, birds: 0.8 } // 거리/실내에 따른 볼륨 배율
+
 function loopLayer(type, ftype, freq, gain, dest) {
   const s = src(type, true)
   const f = ctx.createBiquadFilter()
@@ -109,44 +110,79 @@ function loopLayer(type, ftype, freq, gain, dest) {
 }
 
 function buildAmbient() {
-  for (const k of ['rain', 'stew', 'leaves']) {
+  for (const k of ['rain', 'stew', 'kettle', 'birds']) {
     const out = ctx.createGain()
     out.gain.value = 0
     out.connect(master)
-    amb[k] = { out, on: false, vol: 0.6, timer: null }
+    amb[k] = { out, on: false, timer: null }
   }
-  layers.rainA = loopLayer('pink', 'lowpass', 4200, 0.5, amb.rain.out)
-  layers.rainB = loopLayer('white', 'highpass', 4500, 0.05, amb.rain.out)
-  layers.rainC = loopLayer('brown', 'lowpass', 300, 0.15, amb.rain.out)
-  loopLayer('brown', 'lowpass', 520, 0.7, amb.stew.out) // 보글보글 저음
-  loopLayer('white', 'highpass', 4200, 0.022, amb.stew.out) // 지글지글
-  loopLayer('pink', 'lowpass', 450, 0.12, amb.leaves.out) // 낙엽 사이 바람
-  setRain(rainLevel)
+  // 잔잔한 빗소리
+  layers.rainA = loopLayer('pink', 'lowpass', 3800, 0.45, amb.rain.out)
+  layers.rainB = loopLayer('white', 'highpass', 5000, 0.035, amb.rain.out)
+  layers.rainC = loopLayer('brown', 'lowpass', 280, 0.12, amb.rain.out)
+  // 맑은 오후: 산들바람
+  loopLayer('pink', 'lowpass', 520, 0.05, amb.birds.out)
+  // 된장찌개 보글보글
+  loopLayer('brown', 'lowpass', 480, 0.55, amb.stew.out)
+  loopLayer('white', 'highpass', 4200, 0.015, amb.stew.out)
+  // 양은 주전자 '뿌우~' 휘슬
+  const w = ctx.createOscillator()
+  w.type = 'sine'
+  w.frequency.value = 1720
+  const vib = ctx.createOscillator()
+  vib.frequency.value = 5.2
+  const vg = ctx.createGain()
+  vg.gain.value = 22
+  vib.connect(vg)
+  vg.connect(w.frequency)
+  const wg = ctx.createGain()
+  wg.gain.value = 0.05
+  const trem = ctx.createOscillator()
+  trem.frequency.value = 0.23
+  const tg = ctx.createGain()
+  tg.gain.value = 0.025
+  trem.connect(tg)
+  tg.connect(wg.gain)
+  w.connect(wg)
+  wg.connect(amb.kettle.out)
+  w.start()
+  vib.start()
+  trem.start()
+  const breath = loopLayer('white', 'bandpass', 1750, 0.12, amb.kettle.out)
+  breath.f.Q.value = 7
+  loopLayer('brown', 'lowpass', 400, 0.3, amb.kettle.out) // 끓는 물
 }
 
 const EVENTS = {
+  birds: {
+    // 작은 새 짹짹 (두세 번 연달아)
+    fn: () => {
+      const pan = rnd(-0.8, 0.8)
+      const base = rnd(2600, 4200)
+      const n = 2 + Math.floor(Math.random() * 3)
+      const t = ctx.currentTime
+      for (let i = 0; i < n; i++) tone({ freq: base, to: base * rnd(1.15, 1.4), t: t + i * rnd(0.09, 0.14), dur: 0.07, peak: 0.05, dest: amb.birds.out, pan })
+    },
+    ms: () => rnd(1400, 4200),
+  },
   rain: {
     fn: () => {
-      const heavy = rainLevel >= 2
-      tone({ freq: rnd(1400, 2600), to: rnd(700, 1000), dur: 0.05, peak: heavy ? 0.05 : 0.07, dest: amb.rain.out, pan: rnd(-0.8, 0.8) })
-      if (Math.random() < 0.3) burst({ freq: rnd(3000, 6000), q: 1, dur: 0.03, peak: 0.08, dest: amb.rain.out, pan: rnd(-0.8, 0.8) })
+      tone({ freq: rnd(1400, 2600), to: rnd(700, 1000), dur: 0.05, peak: 0.05, dest: amb.rain.out, pan: rnd(-0.8, 0.8) })
+      if (Math.random() < 0.25) burst({ freq: rnd(3000, 6000), q: 1, dur: 0.03, peak: 0.06, dest: amb.rain.out, pan: rnd(-0.8, 0.8) })
     },
-    ms: () => (rainLevel >= 2 ? rnd(110, 300) : rnd(260, 620)),
+    ms: () => rnd(300, 700),
   },
   stew: {
     fn: () => {
-      const pan = rnd(-0.4, 0.4)
-      tone({ freq: rnd(180, 320), to: rnd(380, 620), dur: 0.09, peak: 0.13, dest: amb.stew.out, pan })
+      const pan = rnd(-0.3, 0.3)
+      tone({ freq: rnd(180, 320), to: rnd(380, 620), dur: 0.09, peak: 0.14, dest: amb.stew.out, pan })
       burst({ freq: rnd(900, 1800), q: 1, dur: 0.04, peak: 0.12, dest: amb.stew.out, pan })
     },
-    ms: () => rnd(90, 280),
+    ms: () => rnd(90, 260),
   },
-  leaves: {
-    fn: () => {
-      burst({ freq: rnd(3000, 6000), q: rnd(0.4, 1.2), dur: rnd(0.02, 0.05), peak: rnd(0.08, 0.25), dest: amb.leaves.out, pan: rnd(-0.6, 0.6) })
-      if (Math.random() < 0.15) burst({ freq: rnd(1000, 2000), q: 0.6, dur: 0.1, peak: 0.1, dest: amb.leaves.out })
-    },
-    ms: () => rnd(60, 220),
+  kettle: {
+    fn: () => tone({ freq: rnd(160, 260), to: rnd(320, 480), dur: 0.08, peak: 0.07, dest: amb.kettle.out, pan: rnd(-0.2, 0.2) }),
+    ms: () => rnd(120, 320),
   },
 }
 
@@ -162,6 +198,11 @@ function startEvents(k) {
     a.timer = setTimeout(tick, EVENTS[k].ms())
   }
   tick()
+}
+
+function applyGain(k, slow) {
+  const a = amb[k]
+  a.out.gain.setTargetAtTime(a.on ? mix[k] : 0, ctx.currentTime, slow ? 0.6 : 0.15)
 }
 
 export function ensureAudio() {
@@ -181,24 +222,19 @@ export function ensureAudio() {
   return ctx
 }
 
-export function setAmbient(name, on, vol) {
+/* 빗소리 · 찌개 · 주전자 켜고 끄기 */
+export function setAmbient(name, on) {
   if (!ctx || !amb[name]) return
-  const a = amb[name]
-  a.on = on
-  a.vol = vol
-  a.out.gain.setTargetAtTime(on ? vol : 0, ctx.currentTime, 0.12)
+  amb[name].on = on
+  applyGain(name, name === 'kettle' && on)
   if (on) startEvents(name)
 }
 
-export function setRain(level) {
-  rainLevel = level
-  if (!ctx || !layers.rainA) return
-  const t = ctx.currentTime
-  const heavy = level >= 2
-  layers.rainA.f.frequency.setTargetAtTime(heavy ? 9000 : 4200, t, 0.3)
-  layers.rainA.g.gain.setTargetAtTime(heavy ? 1 : 0.5, t, 0.3)
-  layers.rainB.g.gain.setTargetAtTime(heavy ? 0.16 : 0.05, t, 0.3)
-  layers.rainC.g.gain.setTargetAtTime(heavy ? 0.9 : 0.15, t, 0.3)
+/* 플레이어 위치에 따른 볼륨 (실내면 빗소리 작게, 사물과 멀면 작게) */
+export function setMix(patch) {
+  Object.assign(mix, patch)
+  if (!ctx) return
+  for (const k of Object.keys(patch)) if (amb[k]) applyGain(k)
 }
 
 /* ───────── 효과음 ───────── */
@@ -341,5 +377,152 @@ export function leaves(dur = 2.8) {
       burst({ t: t0 + k + 0.06, dur: 0.04, freq: 3200, q: 2, peak: 0.35, pan })
     }
     k += rnd(0.03, 0.14)
+  }
+}
+
+/* 강아지 멍멍 (size 클수록 낮고 굵게) */
+export function bark(size = 1, times = 2) {
+  if (!ensureAudio()) return
+  const t0 = ctx.currentTime
+  for (let i = 0; i < times; i++) {
+    const t = t0 + i * 0.24
+    const o = ctx.createOscillator()
+    o.type = 'sawtooth'
+    o.frequency.setValueAtTime(560 / size, t)
+    o.frequency.exponentialRampToValueAtTime(300 / size, t + 0.13)
+    const f = ctx.createBiquadFilter()
+    f.type = 'bandpass'
+    f.frequency.value = 1100 / Math.sqrt(size)
+    f.Q.value = 1.4
+    const g = ctx.createGain()
+    g.gain.setValueAtTime(0.0001, t)
+    g.gain.linearRampToValueAtTime(0.55, t + 0.012)
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.16)
+    o.connect(f)
+    f.connect(g)
+    toOut(g, 0)
+    o.start(t)
+    o.stop(t + 0.2)
+    burst({ type: 'pink', t, dur: 0.08, freq: 800 / size, q: 0.8, peak: 0.25 })
+  }
+}
+
+/* 푸들 낑~ 기분 좋은 소리 */
+export function whine() {
+  if (!ensureAudio()) return
+  const t = ctx.currentTime
+  const o = ctx.createOscillator()
+  o.type = 'sine'
+  o.frequency.setValueAtTime(950, t)
+  o.frequency.linearRampToValueAtTime(1450, t + 0.16)
+  o.frequency.linearRampToValueAtTime(1100, t + 0.4)
+  const g = ctx.createGain()
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.linearRampToValueAtTime(0.18, t + 0.04)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.45)
+  o.connect(g)
+  toOut(g, 0)
+  o.start(t)
+  o.stop(t + 0.5)
+  tone({ freq: 1800, to: 2600, t: t + 0.45, dur: 0.08, peak: 0.08 })
+}
+
+/* 미닫이 유리문 드르륵 */
+export function doorSlide() {
+  if (!ensureAudio()) return
+  const t = ctx.currentTime
+  const s = src('brown')
+  const f = ctx.createBiquadFilter()
+  f.type = 'bandpass'
+  f.frequency.setValueAtTime(380, t)
+  f.frequency.linearRampToValueAtTime(260, t + 0.7)
+  f.Q.value = 1.2
+  const g = ctx.createGain()
+  g.gain.setValueAtTime(0.0001, t)
+  g.gain.linearRampToValueAtTime(0.5, t + 0.08)
+  g.gain.linearRampToValueAtTime(0.35, t + 0.55)
+  g.gain.exponentialRampToValueAtTime(0.0001, t + 0.75)
+  const am = ctx.createOscillator()
+  am.frequency.value = 26
+  const ag = ctx.createGain()
+  ag.gain.value = 0.12
+  am.connect(ag)
+  ag.connect(g.gain)
+  am.start(t)
+  am.stop(t + 0.8)
+  s.connect(f)
+  f.connect(g)
+  toOut(g, 0)
+  s.start(t, rnd(0, 2), 0.8)
+  burst({ t: t + 0.72, dur: 0.04, freq: 1600, q: 2, peak: 0.25 })
+}
+
+/* 옛날 전화기 따르릉 */
+export function ring() {
+  if (!ensureAudio()) return
+  const t0 = ctx.currentTime
+  for (let r = 0; r < 2; r++) {
+    const t = t0 + r * 0.9
+    for (const fq of [1050, 1280]) {
+      const o = ctx.createOscillator()
+      o.type = 'triangle'
+      o.frequency.value = fq
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(0, t)
+      const am = ctx.createOscillator()
+      am.type = 'square'
+      am.frequency.value = 22
+      const ag = ctx.createGain()
+      ag.gain.value = 0.06
+      am.connect(ag)
+      ag.connect(g.gain)
+      g.gain.setValueAtTime(0.06, t)
+      g.gain.setValueAtTime(0.06, t + 0.6)
+      g.gain.linearRampToValueAtTime(0, t + 0.65)
+      o.connect(g)
+      toOut(g, 0)
+      o.start(t)
+      am.start(t)
+      o.stop(t + 0.7)
+      am.stop(t + 0.7)
+    }
+  }
+}
+
+/* TV 채널 지지직 */
+export function tvStatic() {
+  if (!ensureAudio()) return
+  burst({ dur: 0.28, freq: 3000, q: 0.3, peak: 0.2, attack: 0.01 })
+  tone({ freq: 15700, dur: 0.3, peak: 0.01 })
+}
+
+/* 편지지 바스락 */
+export function paper() {
+  if (!ensureAudio()) return
+  const t = ctx.currentTime
+  for (let k = 0; k < 0.5; k += rnd(0.03, 0.08)) burst({ t: t + k, dur: rnd(0.03, 0.08), freq: rnd(2500, 5000), q: 0.6, peak: rnd(0.08, 0.2), filter: 'bandpass' })
+}
+
+/* 다람쥐 찍찍 */
+export function squirrel() {
+  if (!ensureAudio()) return
+  const t = ctx.currentTime
+  for (let i = 0; i < 4; i++) tone({ freq: rnd(3200, 4200), to: rnd(2200, 2800), t: t + i * 0.07, dur: 0.04, peak: 0.08, pan: 0.3 })
+}
+
+/* 처마 풍경 땡그랑 (금속 종) */
+export function windBell() {
+  if (!ensureAudio()) return
+  const t0 = ctx.currentTime
+  const base = rnd(1150, 1300)
+  for (let n = 0; n < 3; n++) {
+    const t = t0 + n * rnd(0.35, 0.6)
+    const amp = 1 - n * 0.3
+    for (const [m, a, d] of [
+      [1, 0.16, 3.2],
+      [2.76, 0.07, 1.8],
+      [5.4, 0.035, 0.9],
+    ])
+      tone({ freq: base * m * (n === 1 ? 1.06 : 1), t, dur: d, peak: a * amp, pan: rnd(-0.2, 0.2) })
   }
 }
