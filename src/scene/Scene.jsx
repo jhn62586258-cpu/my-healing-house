@@ -13,26 +13,26 @@ import { skyTex } from './textures'
 
 /* 맑은 오후 4시 (기본)  ↔  비 오는 저녁 (토글) */
 const DAY = {
-  fog: new THREE.Color('#f7ecdc'),
-  hemiSky: new THREE.Color('#dcefff'),
-  hemiGround: new THREE.Color('#f6dfc2'),
-  hemi: 0.95,
-  key: 2.6,
-  keyC: new THREE.Color('#ffdcae'),
-  rim: 0.5,
-  amb: 0.12,
+  fog: new THREE.Color('#e9dcc4'),
+  hemiSky: new THREE.Color('#cfe0f0'),
+  hemiGround: new THREE.Color('#8a6a48'),
+  hemi: 0.75,
+  key: 3.4,
+  keyC: new THREE.Color('#ffc98a'),
+  rim: 0.35,
+  amb: 0.18,
   porch: 0,
 }
 const NIGHT = {
-  fog: new THREE.Color('#9f9cbc'),
-  hemiSky: new THREE.Color('#a9b3dc'),
-  hemiGround: new THREE.Color('#8a7a8c'),
-  hemi: 0.75,
-  key: 0.35,
-  keyC: new THREE.Color('#c7c3ec'),
-  rim: 0.35,
-  amb: 0.2,
-  porch: 5,
+  fog: new THREE.Color('#3a3d52'),
+  hemiSky: new THREE.Color('#5a6488'),
+  hemiGround: new THREE.Color('#2e2a2c'),
+  hemi: 0.45,
+  key: 0.18,
+  keyC: new THREE.Color('#9aa6d8'),
+  rim: 0.25,
+  amb: 0.1,
+  porch: 4,
 }
 
 function Lighting() {
@@ -48,15 +48,16 @@ function Lighting() {
   const sky = useMemo(() => ({ day: skyTex(false), night: skyTex(true) }), [])
 
   useEffect(() => {
-    scene.fog = new THREE.Fog('#f7ecdc', 30, 85)
+    scene.fog = new THREE.Fog('#e9dcc4', 30, 90)
     scene.add(target)
-    target.position.set(-1, 0, -0.5)
+    target.position.set(-1.5, 0, -1.5)
     key.current.target = target
     return () => scene.remove(target)
   }, [scene, target])
 
   useEffect(() => {
     scene.background = rainOn ? sky.night : sky.day
+    scene.backgroundIntensity = 1
   }, [rainOn, scene, sky])
 
   useFrame((_, dt) => {
@@ -78,31 +79,31 @@ function Lighting() {
 
   return (
     <>
-      <hemisphereLight ref={hemi} args={['#dcefff', '#f6dfc2', 0.95]} />
-      <ambientLight ref={amb} color="#fff3e2" intensity={0.12} />
-      {/* 키 라이트: 남서쪽에서 비스듬히 들어오는 오후 4시 햇살 */}
+      <hemisphereLight ref={hemi} args={['#cfe0f0', '#8a6a48', 0.75]} />
+      <ambientLight ref={amb} color="#fff3e2" intensity={0.18} />
+      {/* 키 라이트: 서쪽 통유리로 낮게 길게 들어오는 오후 4시 햇살 */}
       <directionalLight
         ref={key}
-        position={[-11, 11, 11]}
-        intensity={2.6}
-        color="#ffdcae"
+        position={[-16.5, 7.2, 3.5]}
+        intensity={3.4}
+        color="#ffc98a"
         castShadow
         shadow-mapSize={[2048, 2048]}
-        shadow-camera-left={-14}
-        shadow-camera-right={14}
-        shadow-camera-top={12}
-        shadow-camera-bottom={-12}
+        shadow-camera-left={-15}
+        shadow-camera-right={15}
+        shadow-camera-top={13}
+        shadow-camera-bottom={-13}
         shadow-camera-near={1}
-        shadow-camera-far={45}
+        shadow-camera-far={50}
         shadow-bias={-0.0004}
         shadow-normalBias={0.03}
-        shadow-radius={6}
+        shadow-radius={4}
       />
       {/* 림 라이트: 뒤쪽 하늘빛 */}
-      <directionalLight ref={rim} position={[8, 9, -12]} intensity={0.55} color="#cfe2ff" />
+      <directionalLight ref={rim} position={[10, 9, -8]} intensity={0.35} color="#cfe2ff" />
       {/* 처마 백열등 (저녁에 켜짐) */}
-      <pointLight ref={porch} position={[-0.4, 2.55, 2.0]} color="#ffc67a" intensity={0} distance={7} decay={1.6} />
-      <mesh ref={bulb} position={[-0.4, 2.62, 2.0]} raycast={() => null} userData={{ noCast: true }}>
+      <pointLight ref={porch} position={[-5.6, 2.55, 1.2]} color="#ffc67a" intensity={0} distance={7} decay={1.6} />
+      <mesh ref={bulb} position={[-5.6, 2.68, 1.2]} raycast={() => null} userData={{ noCast: true }}>
         <sphereGeometry args={[0.06, 14, 10]} />
         <meshStandardMaterial color="#fff2d6" emissive="#ffc67a" emissiveIntensity={0.3} />
       </mesh>
@@ -118,12 +119,12 @@ function ShadowSetup() {
   useFrame((_, dt) => {
     t.current -= dt
     if (t.current > 0) return
-    t.current = 1.2
+    t.current = 0.5
     scene.traverse((o) => {
       if (!o.isMesh) return
       const m = Array.isArray(o.material) ? o.material[0] : o.material
       const flat = FLAT.has(o.geometry?.type)
-      o.castShadow = !flat && !o.userData.noCast && !(m && m.transparent) && !(m && m.isMeshBasicMaterial)
+      o.castShadow = !flat && !o.userData.noCast && !(m && m.transparent) && !(m && m.isMeshBasicMaterial) && !(m && m.toneMapped === false)
       o.receiveShadow = !(m && m.isMeshBasicMaterial)
     })
   })

@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { soft } from './parts'
 
-const mat = (c, r = 0.75) => new THREE.MeshStandardMaterial({ color: c, roughness: r })
+const mat = (c, r = 0.62) => new THREE.MeshStandardMaterial({ color: c, roughness: r })
 
 /* 말랑말랑 강아지 — 통통한 캡슐 몸통 + 동그란 머리 + 까맣고 큰 눈 + 분홍 코
    ref.current.wag(초) : 꼬리 살랑 + 깡총
@@ -22,9 +22,9 @@ export const Dog = forwardRef(function Dog({ color = '#e9c58e', light, pose = 's
       light: mat(soft(light || color)),
       eye: new THREE.MeshStandardMaterial({ color: '#2a2220', roughness: 0.15 }),
       white: new THREE.MeshBasicMaterial({ color: '#ffffff' }),
-      nose: mat('#f2a4ae', 0.4),
-      blush: new THREE.MeshStandardMaterial({ color: '#ffb3bd', roughness: 1, transparent: true, opacity: 0.75 }),
-      collar: mat('#e98f8f', 0.6),
+      nose: mat('#7a4a48', 0.3),
+      blush: new THREE.MeshStandardMaterial({ color: '#e89a96', roughness: 1, transparent: true, opacity: 0.35 }),
+      collar: mat('#a8352b', 0.5),
     }),
     [color, light]
   )
@@ -120,9 +120,9 @@ export const Dog = forwardRef(function Dog({ color = '#e9c58e', light, pose = 's
         </group>
 
         {/* 머리 */}
-        <group ref={head} position={headPos}>
+        <group ref={head} position={headPos} scale={1.18}>
           <mesh material={m.fur}>
-            <sphereGeometry args={[0.19, 24, 18]} />
+            <sphereGeometry args={[0.19, 28, 20]} />
           </mesh>
           {poodle && (
             <mesh position={[0, 0.14, -0.02]} scale={[1, 0.75, 1]} material={m.fur}>

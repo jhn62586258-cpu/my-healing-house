@@ -2,6 +2,7 @@ import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { softDot, emojiTex } from './textures'
+import { world as storeWorld } from '../store'
 
 const W = 1024
 const H = 200
@@ -159,3 +160,100 @@ export function Sparkle({ p = [0, 0, 0] }) {
     </sprite>
   )
 }
+
+/* ───────── 소리 표시 아이콘 (🔊/♪) ─────────
+   사물 머리 위에 은은하게 둥둥. 재생 중이면 반짝 + 파동 링이 퍼짐 */
+let badgeTex = null
+let ringTex = null
+function makeBadgeTex() {
+  if (badgeTex) return badgeTex
+  const c = document.createElement('canvas')
+  c.width = c.height = 128
+  const g = c.getContext('2d')
+  g.fillStyle = 'rgba(28,24,20,0.55)'
+  g.beginPath()
+  g.arc(64, 64, 56, 0, Math.PI * 2)
+  g.fill()
+  g.strokeStyle = 'rgba(255,255,255,0.55)'
+  g.lineWidth = 4
+  g.stroke()
+  // 스피커
+  g.fillStyle = '#ffffff'
+  g.beginPath()
+  g.moveTo(36, 54)
+  g.lineTo(50, 54)
+  g.lineTo(66, 40)
+  g.lineTo(66, 88)
+  g.lineTo(50, 74)
+  g.lineTo(36, 74)
+  g.closePath()
+  g.fill()
+  g.strokeStyle = '#ffffff'
+  g.lineWidth = 5
+  g.lineCap = 'round'
+  for (const r of [12, 22]) {
+    g.beginPath()
+    g.arc(68, 64, r, -0.7, 0.7)
+    g.stroke()
+  }
+  badgeTex = new THREE.CanvasTexture(c)
+  badgeTex.colorSpace = THREE.SRGBColorSpace
+  return badgeTex
+}
+function makeRingTex() {
+  if (ringTex) return ringTex
+  const c = document.createElement('canvas')
+  c.width = c.height = 128
+  const g = c.getContext('2d')
+  g.strokeStyle = 'rgba(255,240,210,1)'
+  g.lineWidth = 6
+  g.beginPath()
+  g.arc(64, 64, 56, 0, Math.PI * 2)
+  g.stroke()
+  ringTex = new THREE.CanvasTexture(c)
+  return ringTex
+}
+
+export function SoundBadge({ id, p = [0, 0, 0], size = 0.3 }) {
+  const { world } = SoundBadge.deps
+  const g = useRef()
+  const icon = useRef()
+  const rings = useRef([])
+  const tex = useMemo(() => makeBadgeTex(), [])
+  const rtex = useMemo(() => makeRingTex(), [])
+  const seed = useMemo(() => Math.random() * 10, [])
+  useFrame(({ clock, camera }) => {
+    const t = clock.elapsedTime
+    const playing = (world.playing[id] || 0) > performance.now()
+    // 너무 멀면 숨김 (화면이 지저분하지 않게)
+    const d = camera.position.distanceTo(g.current.getWorldPosition(_v))
+    const far = d > 9
+    g.current.visible = !far
+    g.current.position.y = p[1] + Math.sin(t * 1.6 + seed) * 0.04
+    const pulse = playing ? 1 + Math.sin(t * 9) * 0.08 : 1
+    icon.current.scale.set(size * pulse, size * pulse, 1)
+    icon.current.material.opacity = playing ? 0.95 : 0.6
+    rings.current.forEach((r, i) => {
+      if (!r) return
+      const k = (t * 0.9 + i * 0.5) % 1
+      r.visible = playing
+      const s = size * (1 + k * 1.6)
+      r.scale.set(s, s, 1)
+      r.material.opacity = (1 - k) * 0.7
+    })
+  })
+  return (
+    <group ref={g} position={p}>
+      <sprite ref={icon} raycast={() => null} renderOrder={990}>
+        <spriteMaterial map={tex} transparent depthWrite={false} depthTest={false} opacity={0.6} />
+      </sprite>
+      {[0, 1].map((i) => (
+        <sprite key={i} ref={(el) => (rings.current[i] = el)} raycast={() => null} renderOrder={989} visible={false}>
+          <spriteMaterial map={rtex} transparent depthWrite={false} depthTest={false} color="#ffe6b8" />
+        </sprite>
+      ))}
+    </group>
+  )
+}
+const _v = new THREE.Vector3()
+SoundBadge.deps = { world: storeWorld }

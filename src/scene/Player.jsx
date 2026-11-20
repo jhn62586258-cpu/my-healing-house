@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import { world, getState, useStore, groundY, inHouse, nearDesk, showToast, BOUNDS } from '../store'
+import { world, getState, useStore, groundY, inside as isInside, inRoom, nearDesk, showToast, standUp, BOUNDS } from '../store'
 import * as audio from '../audio/AsmrEngine'
 import { Child, FPLegs } from './Character'
 
@@ -13,8 +13,8 @@ const angDiff = (a, b) => {
   return d
 }
 const R = 0.22
-const STOVE = [0.95, -3.25] // 주전자
-const POT = [4.75, -6.55] // 뚝배기
+const STOVE = [0.55, -5.35] // 주전자
+const POT = [4.25, -5.65] // 뚝배기
 
 /* 드래그(마우스·한 손가락)로 시선(1인칭) / 카메라 회전(3인칭) */
 export function LookControls() {
@@ -101,8 +101,10 @@ export default function Player() {
     const first = getState().view === 'first'
     const k = world.keys
 
-    const f = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0)
-    const r = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0)
+    // 키보드 + 가상 조이스틱
+    const f = clamp((k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0) - world.joy.y, -1, 1)
+    const r = clamp((k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0) + world.joy.x, -1, 1)
+    if ((f || r) && getState().sitting) standUp()
     const q = (k.has('KeyE') ? 1 : 0) - (k.has('KeyQ') ? 1 : 0)
     if (q) {
       if (first) lk.yaw -= q * dt * 1.8
@@ -133,11 +135,12 @@ export default function Player() {
       }
     }
     const len = Math.hypot(dx, dz)
+    const mag = Math.min(1, len)
     if (len > 0) {
       dx /= len
       dz /= len
     }
-    p.speed += ((len > 0 ? 1 : 0) - p.speed) * Math.min(1, dt * 10)
+    p.speed += ((len > 0.05 ? mag : 0) - p.speed) * Math.min(1, dt * 10)
     const sp = 2.0 * p.speed
     p.x += dx * sp * dt
     p.z += dz * sp * dt
@@ -204,6 +207,11 @@ export default function Player() {
     else if (len > 0) p.rot += angDiff(p.rot, Math.atan2(dx, dz)) * Math.min(1, dt * 10)
 
     p.y += (groundY(p.x, p.z) - p.y) * Math.min(1, dt * 12)
+    if (world.snap) {
+      p.y = groundY(p.x, p.z)
+      snap.current = true
+      world.snap = false
+    }
 
     if (root.current) {
       root.current.position.set(p.x, p.y, p.z)
@@ -215,7 +223,7 @@ export default function Player() {
     if (mixT.current < 0) {
       mixT.current = 0.25
       const near = (pt) => clamp(1.25 - Math.hypot(p.x - pt[0], p.z - pt[1]) / 7, 0.12, 1)
-      audio.setMix({ rain: inHouse(p.x, p.z) ? 0.4 : 0.75, birds: inHouse(p.x, p.z) ? 0.35 : 0.85, stew: near(POT), kettle: near(STOVE) })
+      audio.setMix({ rain: isInside(p.x, p.z) ? 0.4 : 0.75, birds: isInside(p.x, p.z) ? 0.35 : 0.85, stew: near(POT), kettle: near(STOVE) })
     }
 
     // 카메라
@@ -226,23 +234,25 @@ export default function Player() {
         cam.updateProjectionMatrix()
       }
       cam.rotation.order = 'YXZ'
-      cam.position.set(p.x + Math.sin(lk.yaw) * 0.08, p.y + 1.12, p.z + Math.cos(lk.yaw) * 0.08)
+      cam.position.set(p.x + Math.sin(lk.yaw) * 0.08, p.y + 0.95, p.z + Math.cos(lk.yaw) * 0.08)
       cam.rotation.set(lk.pitch, lk.yaw + Math.PI, 0)
       snap.current = true
     } else {
       const portrait = state.size.height > state.size.width
-      const fov = portrait ? 58 : 50
+      const fov = portrait ? 62 : 52
       if (cam.fov !== fov) {
         cam.fov = fov
         cam.updateProjectionMatrix()
       }
       const cd = world.cam
-      const inside = inHouse(p.x, p.z)
+      const inside = isInside(p.x, p.z)
       const desk = nearDesk(p.x, p.z)
-      const tD = desk ? 2.4 : inside ? 3.6 : 3.9
-      const tH = desk ? 1.7 : inside ? 2.5 : 2.55
-      cd.dist += (tD * (portrait ? 1.08 : 1) - cd.dist) * Math.min(1, dt * 3)
-      cd.h += (tH + (cd.tilt || 0) * 2 - cd.h) * Math.min(1, dt * 4)
+      // 실내: 천장 들보(y≈3.0)보다 낮은 눈높이 → 서까래가 시야를 가리지 않음
+      const tD = desk ? 2.2 : inRoom(p.x, p.z) ? 2.7 : inside ? 3.1 : 4.0
+      const tH = desk ? 1.35 : inside ? 1.7 : 2.4
+      const maxH = inside ? 2.2 : 4.2
+      cd.dist += (tD * (portrait ? 1.12 : 1) - cd.dist) * Math.min(1, dt * 3)
+      cd.h += (clamp(tH + (cd.tilt || 0) * 2, 0.9, maxH) - cd.h) * Math.min(1, dt * 4)
       const fx2 = Math.sin(lk.tyaw)
       const fz2 = Math.cos(lk.tyaw)
       tmp.set(p.x - fx2 * cd.dist, Math.max(0.6, p.y + cd.h), p.z - fz2 * cd.dist)
@@ -250,16 +260,17 @@ export default function Player() {
       let tk = 1
       const ddx = tmp.x - p.x
       const ddz = tmp.z - p.z
-      if (tmp.z > 8.9) tk = Math.min(tk, (8.9 - p.z) / ddz)
-      if (tmp.x > 8.6) tk = Math.min(tk, (8.6 - p.x) / ddx)
-      if (tmp.x < -11) tk = Math.min(tk, (-11 - p.x) / ddx)
+      if (tmp.z > 8.4) tk = Math.min(tk, (8.4 - p.z) / ddz)
+      if (tmp.z < -10.2) tk = Math.min(tk, (-10.2 - p.z) / ddz)
+      if (tmp.x > 9.3) tk = Math.min(tk, (9.3 - p.x) / ddx)
+      if (tmp.x < -12.3) tk = Math.min(tk, (-12.3 - p.x) / ddx)
       tk = clamp(tk, 0.55, 1)
       if (tk < 1) tmp.set(p.x + ddx * tk, tmp.y + (1 - tk) * 0.8, p.z + ddz * tk)
       if (snap.current) {
         cam.position.copy(tmp)
         snap.current = false
       } else cam.position.lerp(tmp, 1 - Math.exp(-dt * 6))
-      look.set(p.x, p.y + (portrait ? 1.05 : 0.75), p.z)
+      look.set(p.x, p.y + (inside ? 0.85 : 0.7) + (portrait ? 0.15 : 0), p.z)
       cam.lookAt(look)
     }
   })

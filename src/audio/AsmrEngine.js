@@ -46,8 +46,9 @@ function src(type, loop = false) {
   return s
 }
 
+let route = null // 세션 버스 (5~7초 재생 후 페이드 아웃)
 function toOut(node, pan = 0, dest) {
-  const d = dest || master
+  const d = dest || route || master
   if (ctx.createStereoPanner) {
     const p = ctx.createStereoPanner()
     p.pan.value = pan
@@ -234,7 +235,7 @@ export function setAmbient(name, on) {
 export function setMix(patch) {
   Object.assign(mix, patch)
   if (!ctx) return
-  for (const k of Object.keys(patch)) if (amb[k]) applyGain(k)
+  for (const k of Object.keys(patch)) if (amb[k] && amb[k].on) applyGain(k)
 }
 
 /* ───────── 효과음 ───────── */
@@ -525,4 +526,43 @@ export function windBell() {
     ])
       tone({ freq: base * m * (n === 1 ? 1.06 : 1), t, dur: d, peak: a * amp, pan: rnd(-0.2, 0.2) })
   }
+}
+
+/* ───────── 들렸다가 사라지는 사운드 세션 ─────────
+   fn 을 gap 간격으로 반복 재생하다가, 마지막 fade ms 동안 볼륨을 서서히 줄여 끝냄 */
+export function session(fn, { dur = 6000, gap = [700, 1300], fade = 2200, once = false } = {}) {
+  if (!ensureAudio()) return 0
+  const bus = ctx.createGain()
+  bus.connect(master)
+  const t0 = ctx.currentTime
+  bus.gain.setValueAtTime(1, t0)
+  bus.gain.setValueAtTime(1, t0 + Math.max(0, dur - fade) / 1000)
+  bus.gain.linearRampToValueAtTime(0.0001, t0 + dur / 1000)
+  const end = performance.now() + dur
+  const tick = () => {
+    if (performance.now() > end - 500) return
+    route = bus
+    try {
+      fn()
+    } finally {
+      route = null
+    }
+    if (!once) setTimeout(tick, rnd(gap[0], gap[1]))
+  }
+  tick()
+  setTimeout(() => bus.disconnect(), dur + 800)
+  return end
+}
+
+/* 찌개·주전자처럼 이어지는 소리: ms 동안 켰다가 부드럽게 꺼짐 */
+const ambTimers = {}
+export function ambientFor(name, ms = 6500) {
+  if (!ensureAudio() || !amb[name]) return 0
+  setAmbient(name, true)
+  clearTimeout(ambTimers[name])
+  ambTimers[name] = setTimeout(() => {
+    amb[name].on = false
+    amb[name].out.gain.setTargetAtTime(0, ctx.currentTime, 0.7)
+  }, Math.max(500, ms - 2200))
+  return performance.now() + ms
 }

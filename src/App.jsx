@@ -8,14 +8,15 @@ import * as audio from './audio/AsmrEngine'
 export default function App() {
   const started = useStore((s) => s.started)
   const rainOn = useStore((s) => s.rainOn)
+  const bgmOn = useStore((s) => s.bgmOn)
 
   // 입장하면 잔잔한 빗소리만 기본으로
   // 맑은 날: 산들바람 + 새소리 / 비 모드: 빗소리
   useEffect(() => {
     if (!started) return
-    audio.setAmbient('rain', rainOn)
-    audio.setAmbient('birds', !rainOn)
-  }, [started, rainOn])
+    audio.setAmbient('rain', bgmOn && rainOn)
+    audio.setAmbient('birds', bgmOn && !rainOn)
+  }, [started, rainOn, bgmOn])
 
   // 키보드
   useEffect(() => {
@@ -42,7 +43,7 @@ export default function App() {
 
   return (
     <div style={{ position: 'fixed', inset: 0 }}>
-      <Canvas shadows="percentage" camera={{ fov: 55, near: 0.05, far: 160, position: [-0.4, 3, 6.2] }} dpr={[1, 1.75]} gl={{ antialias: true, toneMappingExposure: 1.05 }} style={{ touchAction: 'none' }}>
+      <Canvas shadows="percentage" camera={{ fov: 55, near: 0.05, far: 160, position: [-0.4, 3, 6.2] }} dpr={[1, 1.75]} gl={{ antialias: true, toneMappingExposure: 1.0 }} style={{ touchAction: 'none' }}>
         <Scene />
       </Canvas>
       <UI />

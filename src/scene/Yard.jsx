@@ -1,15 +1,16 @@
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { interact, moveTo, openLetter, showToast } from '../store'
+import { useActor, moveTo, openLetter, showToast, playSound } from '../store'
 import * as audio from '../audio/AsmrEngine'
-import { grassTex, plaid } from './textures'
-import { Box, Cyl, Sph, Cap, Rod, Hit, soft, roundBoxGeo, roundCylGeo } from './parts'
+import { grassTex, plaid, stoneWall } from './textures'
+import { Box, Cyl, Sph, Cap, Rod, roundBoxGeo, roundCylGeo } from './parts'
 import { Dog } from './Dogs'
-import { SpeechBubble, Hearts, Sparkle } from './Fx'
+import { SpeechBubble, Hearts, SoundBadge } from './Fx'
+import { pick } from './Living'
 
-/* ───────── 정원 상자 받침 (말랑한 둥근 잔디 판) ───────── */
-const BASE = { x0: -11.4, x1: 9.0, z0: -8.1, z1: 7.7 }
+const BASE = { x0: -12.6, x1: 9.6, z0: -10.4, z1: 7.4 }
+
 function roundRectShape(w, h, r) {
   const s = new THREE.Shape()
   const x = -w / 2
@@ -25,63 +26,57 @@ function roundRectShape(w, h, r) {
   s.quadraticCurveTo(x, y, x + r, y)
   return s
 }
+
+/* ───────── 미니어처 받침 + 잔디 + 디딤돌 ───────── */
 function Ground() {
   const grass = useMemo(() => grassTex(), [])
   const W = BASE.x1 - BASE.x0
   const D = BASE.z1 - BASE.z0
   const cx = (BASE.x0 + BASE.x1) / 2
   const cz = (BASE.z0 + BASE.z1) / 2
-  const soil = useMemo(() => roundBoxGeo(W, 1.3, D, 0.45), [W, D])
   const top = useMemo(() => {
-    const g = new THREE.ShapeGeometry(roundRectShape(W - 0.5, D - 0.5, 0.6), 8)
-    // uv 반복
+    const g = new THREE.ShapeGeometry(roundRectShape(W - 0.3, D - 0.3, 0.5), 8)
     const uv = g.attributes.uv
-    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 2.5, uv.getY(i) / 2.5)
+    for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / 3, uv.getY(i) / 3)
     return g
   }, [W, D])
   const stones = useMemo(() => {
     const out = []
-    const a = [2.5, 6.6]
-    const b = [-0.4, 1.0]
-    for (let i = 0; i <= 7; i++) {
-      const u = i / 7
-      out.push([a[0] + (b[0] - a[0]) * u + Math.sin(i * 1.7) * 0.15, a[1] + (b[1] - a[1]) * u, 0.19 + (i % 3) * 0.03])
+    const a = [-7.85, 6.2]
+    const b = [-5.0, 1.3]
+    for (let i = 0; i <= 6; i++) {
+      const u = i / 6
+      out.push([a[0] + (b[0] - a[0]) * u + Math.sin(i * 1.7) * 0.15, a[1] + (b[1] - a[1]) * u, 0.24 + (i % 3) * 0.03])
     }
     return out
   }, [])
   return (
     <group>
-      <mesh geometry={soil} position={[cx, -0.66, cz]} onClick={moveTo}>
-        <meshStandardMaterial color="#d8b48e" roughness={1} />
+      <mesh position={[cx, -0.6, cz]} geometry={roundBoxGeo(W, 1.2, D, 0.35)} onClick={moveTo}>
+        <meshStandardMaterial color="#7a5a3e" roughness={1} />
       </mesh>
-      {/* 흙 층 줄무늬 */}
-      <mesh geometry={roundBoxGeo(W + 0.02, 0.14, D + 0.02, 0.07)} position={[cx, -0.9, cz]} raycast={() => null}>
-        <meshStandardMaterial color="#c79f7a" roughness={1} />
-      </mesh>
-      <mesh geometry={top} rotation-x={-Math.PI / 2} position={[cx, 0.006, cz]} onClick={moveTo} userData={{ noCast: true }}>
+      <mesh geometry={top} rotation-x={-Math.PI / 2} position={[cx, 0.004, cz]} onClick={moveTo}>
         <meshStandardMaterial map={grass} roughness={1} />
       </mesh>
-      {/* 대문에서 댓돌까지 동글동글 디딤돌 */}
       {stones.map(([x, z, r], i) => (
-        <mesh key={i} position={[x, 0.03, z]} scale={[1, 0.25, 0.85]} onClick={moveTo}>
+        <mesh key={i} position={[x, 0.03, z]} scale={[1, 0.22, 0.8]} onClick={moveTo}>
           <sphereGeometry args={[r * 1.4, 18, 10]} />
-          <meshStandardMaterial color={i % 2 ? '#e9e0d0' : '#ddd3c2'} roughness={1} />
+          <meshStandardMaterial color={i % 2 ? '#b3ada3' : '#a29c92'} roughness={0.9} />
         </mesh>
       ))}
-      {/* 창고채 앞 흙마당 */}
-      <mesh geometry={roundBoxGeo(1.6, 0.04, 4.6, 0.02)} position={[-5.1, 0.02, 1.4]} onClick={moveTo}>
-        <meshStandardMaterial color="#ecdcc0" roughness={1} />
+      {/* 창고채 앞 시멘트 */}
+      <mesh position={[-9.6, 0.02, -6.0]} geometry={roundBoxGeo(4.0, 0.04, 0.9, 0.02)} onClick={moveTo}>
+        <meshStandardMaterial color="#c4bfb5" roughness={0.7} />
       </mesh>
-      {/* 낙엽 몇 장 */}
       {useMemo(
         () =>
-          Array.from({ length: 22 }, (_, i) => {
-            const x = -5 + Math.random() * 12
-            const z = 3.8 + Math.random() * 2.2
+          Array.from({ length: 26 }, (_, i) => {
+            const x = -11 + Math.random() * 3.6
+            const z = -5 + Math.random() * 10
             return (
-              <mesh key={i} position={[x, 0.015, z]} rotation={[-Math.PI / 2, 0, Math.random() * 6]} raycast={() => null} userData={{ noCast: true }}>
+              <mesh key={i} position={[x, 0.012, z]} rotation={[-Math.PI / 2, 0, Math.random() * 6]} raycast={() => null} userData={{ noCast: true }}>
                 <circleGeometry args={[0.06, 6]} />
-                <meshStandardMaterial color={['#e6a676', '#d99a6a', '#efc27e'][i % 3]} roughness={1} />
+                <meshStandardMaterial color={['#b5642a', '#9a4e22', '#c98a3a'][i % 3]} roughness={1} />
               </mesh>
             )
           }),
@@ -91,149 +86,133 @@ function Ground() {
   )
 }
 
-/* ───────── 나무 울타리 (둥근 말뚝 + 가로대) ───────── */
-const FENCE = '#ecd3ad'
-function FenceRun({ a, b }) {
-  const len = Math.hypot(b[0] - a[0], b[1] - a[1])
-  const n = Math.max(2, Math.round(len / 0.36))
-  const ang = Math.atan2(b[1] - a[1], b[0] - a[0])
-  const posts = []
-  for (let i = 0; i <= n; i++) {
-    const u = i / n
-    posts.push([a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u])
-  }
-  const mx = (a[0] + b[0]) / 2
-  const mz = (a[1] + b[1]) / 2
-  return (
-    <group>
-      {posts.map(([x, z], i) => (
-        <Cap key={i} p={[x, 0.42, z]} r={0.065} len={0.62} c={FENCE} />
-      ))}
-      {[0.3, 0.6].map((y) => (
-        <Box key={y} p={[mx, y, mz]} s={[len, 0.07, 0.06]} rot={[0, -ang, 0]} c="#e2c49a" rad={0.03} />
-      ))}
-    </group>
-  )
-}
+/* ───────── 돌담 + 대문 기둥 + 뒤뜰 나무 ───────── */
 function Walls() {
+  const tex = useMemo(() => stoneWall(), [])
+  const seg = (x0, x1, z0, z1, k) => (
+    <mesh key={k} position={[(x0 + x1) / 2, 0.42, (z0 + z1) / 2]} geometry={roundBoxGeo(x1 - x0, 0.84, z1 - z0, 0.12)}>
+      <meshStandardMaterial map={tex} roughness={1} />
+    </mesh>
+  )
   return (
     <group>
-      <FenceRun a={[-6.25, 6.9]} b={[1.65, 6.9]} />
-      <FenceRun a={[3.35, 6.9]} b={[8.4, 6.9]} />
-      <FenceRun a={[8.4, 6.9]} b={[8.4, -7.15]} />
-      <FenceRun a={[8.4, -7.15]} b={[6.1, -7.15]} />
-      {/* 대문 기둥 (동글 머리) */}
-      {[1.6, 3.4].map((x) => (
+      {seg(-11.9, -11.45, -6.4, 6.9, 'w')}
+      {seg(-11.9, -8.6, 6.5, 6.9, 's1')}
+      {seg(-7.1, -3.9, 6.5, 6.9, 's2')}
+      {seg(-4.15, -3.75, 4.4, 6.9, 'e')}
+      {[-8.6, -7.1].map((x) => (
         <group key={x}>
-          <Cap p={[x, 0.5, 6.9]} r={0.1} len={0.8} c="#d9b58a" />
-          <Sph p={[x, 1.02, 6.9]} r={0.12} c="#f2d9b0" />
+          <Box p={[x, 0.6, 6.7]} s={[0.36, 1.2, 0.46]} c="#8f8a80" rad={0.06} />
+          <Box p={[x, 1.24, 6.7]} s={[0.44, 0.08, 0.54]} c="#6d6860" rad={0.03} />
         </group>
       ))}
-      {/* 뒤뜰 동글 덤불 */}
-      {[-10.6, -9.2, -7.6, -5.8, -3.9, -2.2, -0.4, 1.4, 3.2, 5.0].map((x, i) => (
-        <Sph key={i} p={[x, 0.42, -7.65]} r={0.55 + (i % 3) * 0.1} sc={[1.2, 0.85, 0.8]} c={i % 2 ? '#a9cf8c' : '#9cc483'} />
+      {/* 뒤편 소나무·덤불 */}
+      {[
+        [-12.0, -9.8],
+        [-10.3, -10.0],
+        [-2.5, -8.0],
+        [0.5, -8.2],
+        [3.5, -7.8],
+        [7.2, -6.0],
+        [8.8, -8.6],
+      ].map(([x, z], i) => (
+        <group key={i} position={[x, 0, z]}>
+          <Cyl p={[0, 1.0, 0]} r={0.15} h={2} c="#5a4232" />
+          <Sph p={[0, 2.4, 0]} r={1.1} sc={[1, 1.1, 1]} c="#3f5f32" />
+          <Sph p={[0.2, 3.3, 0.1]} r={0.75} c="#466a37" />
+        </group>
       ))}
-      {[-6.6, -8.3, -10.1].map((x, i) => (
-        <Sph key={'s' + i} p={[x, 0.4, 6.0 - i * 0.3]} r={0.55} sc={[1.1, 0.85, 1]} c="#a6cc88" />
+      {[
+        [-3.6, 6.0],
+        [-0.5, 5.9],
+        [2.5, 6.0],
+        [5.5, 5.4],
+        [8.2, 4.4],
+        [9.0, 0.5],
+      ].map(([x, z], i) => (
+        <Sph key={'b' + i} p={[x, 0.42, z]} r={0.6 + (i % 2) * 0.15} sc={[1.2, 0.8, 1]} c={i % 2 ? '#56793d' : '#4d7036'} />
       ))}
     </group>
   )
 }
 
-/* ───────── 꽃밭 ───────── */
-const FLOWER = ['#ffb7c5', '#ffe08a', '#c9b6f2', '#ffffff', '#ffc9a3', '#f7a8b8']
+/* ───────── 꽃밭 · 텃밭 ───────── */
+const FLOWER = ['#e98aa0', '#f2c94c', '#b49ad9', '#f7f3ea', '#ee9a6a']
 function FlowerBed({ x0, x1, z0, z1, seed = 1 }) {
   const items = useMemo(() => {
-    const out = []
     let k = seed
     const rnd = () => ((k = (k * 9301 + 49297) % 233280) / 233280)
-    const n = Math.round((x1 - x0) * (z1 - z0) * 14)
-    for (let i = 0; i < n; i++) out.push([x0 + 0.1 + rnd() * (x1 - x0 - 0.2), z0 + 0.1 + rnd() * (z1 - z0 - 0.2), 0.18 + rnd() * 0.2, FLOWER[i % FLOWER.length]])
-    return out
+    const n = Math.round((x1 - x0) * (z1 - z0) * 13)
+    return Array.from({ length: n }, (_, i) => [x0 + 0.1 + rnd() * (x1 - x0 - 0.2), z0 + 0.1 + rnd() * (z1 - z0 - 0.2), 0.2 + rnd() * 0.22, FLOWER[i % FLOWER.length]])
   }, [x0, x1, z0, z1, seed])
   return (
     <group>
-      <Box p={[(x0 + x1) / 2, 0.07, (z0 + z1) / 2]} s={[x1 - x0, 0.16, z1 - z0]} c="#b99474" rad={0.07} />
+      <Box p={[(x0 + x1) / 2, 0.07, (z0 + z1) / 2]} s={[x1 - x0, 0.16, z1 - z0]} c="#6a4a32" rad={0.06} />
       {items.map(([x, z, h, c], i) => (
         <group key={i} position={[x, 0.12, z]}>
           <mesh position={[0, h / 2, 0]}>
             <capsuleGeometry args={[0.012, h, 3, 6]} />
-            <meshStandardMaterial color="#8fbf7a" />
+            <meshStandardMaterial color="#4f7a34" />
           </mesh>
-          <mesh position={[0.03, h * 0.35, 0]} rotation={[0, 0, -0.8]} scale={[1, 0.4, 0.6]}>
-            <sphereGeometry args={[0.04, 8, 6]} />
-            <meshStandardMaterial color="#9ccb85" />
-          </mesh>
-          <mesh position={[0, h + 0.03, 0]} scale={[1, 0.8, 1]}>
-            <sphereGeometry args={[0.055, 12, 10]} />
+          <mesh position={[0, h + 0.03, 0]} scale={[1, 0.75, 1]}>
+            <sphereGeometry args={[0.05, 10, 8]} />
             <meshStandardMaterial color={c} roughness={0.8} />
-          </mesh>
-          <mesh position={[0, h + 0.07, 0]}>
-            <sphereGeometry args={[0.02, 8, 6]} />
-            <meshStandardMaterial color="#ffe9a8" />
           </mesh>
         </group>
       ))}
     </group>
   )
 }
-
-/* ───────── 작은 텃밭 (배추 · 상추 · 대파) ───────── */
 function Veggie() {
   return (
     <group>
-      <Box p={[-1.15, 0.12, 5.65]} s={[2.7, 0.24, 0.95]} c="#d3b08a" rad={0.1} />
-      <Box p={[-1.15, 0.2, 5.65]} s={[2.5, 0.1, 0.78]} c="#a98466" rad={0.05} />
-      {[-2.2, -1.6, -1.0].map((x, i) => (
-        <group key={i} position={[x, 0.3, 5.45]}>
-          <Sph p={[0, 0.06, 0]} r={0.13} sc={[1, 0.9, 1]} c="#c5e3a6" />
-          {[0, 1, 2, 3].map((k) => (
-            <Sph key={k} p={[Math.cos(k * 1.57) * 0.1, 0.03, Math.sin(k * 1.57) * 0.1]} r={0.1} sc={[1, 0.55, 1]} c="#9fd08a" />
+      <Box p={[-10.25, 0.12, 3.5]} s={[1.9, 0.24, 2.2]} c="#8a6a4a" rad={0.08} />
+      <Box p={[-10.25, 0.2, 3.5]} s={[1.75, 0.08, 2.05]} c="#5a3e2a" rad={0.04} />
+      {[2.8, 3.4, 4.0].map((z, i) => (
+        <group key={i}>
+          {[-10.75, -10.25].map((x, k) => (
+            <group key={k} position={[x, 0.3, z]}>
+              <Sph p={[0, 0.05, 0]} r={0.13} sc={[1, 0.85, 1]} c="#a6c97a" />
+              {[0, 1, 2, 3].map((q) => (
+                <Sph key={q} p={[Math.cos(q * 1.57) * 0.1, 0.02, Math.sin(q * 1.57) * 0.1]} r={0.1} sc={[1, 0.5, 1]} c="#6f9a45" />
+              ))}
+            </group>
+          ))}
+          {[-9.8, -9.65].map((x) => (
+            <Cap key={x} p={[x, 0.45, z]} r={0.022} len={0.3} c="#5f9a40" />
           ))}
         </group>
       ))}
-      {[-2.2, -1.6, -1.0].map((x, i) => (
-        <Sph key={'l' + i} p={[x + 0.1, 0.32, 5.85]} r={0.1} sc={[1.2, 0.6, 1]} c="#b6dc8e" />
-      ))}
-      {[-0.4, -0.25, -0.1, 0.05].map((x, i) => (
-        <group key={'p' + i}>
-          <Cap p={[x, 0.45, 5.5 + (i % 2) * 0.25]} r={0.022} len={0.3} c="#8fc47a" />
-          <Cap p={[x, 0.3, 5.5 + (i % 2) * 0.25]} r={0.025} len={0.06} c="#f6f3e6" />
-        </group>
-      ))}
-      {/* 이름표 */}
-      <Cap p={[0.08, 0.35, 6.05]} r={0.02} len={0.3} c="#c9a27a" />
-      <Box p={[0.08, 0.58, 6.07]} s={[0.36, 0.2, 0.04]} c="#fff1d6" rad={0.05} />
     </group>
   )
 }
 
-/* ───────── 평상 (감 한 접시) ───────── */
+/* ───────── 평상 (홍시 한 접시 · 앉기 가능) ───────── */
 function Pyeongsang() {
   const hearts = useRef()
-  const pos = [4.8, 0, 1.9]
-  const act = () => {
+  const pos = [-8.25, 0.45, 3.4]
+  const h = useActor('persimmon', 'object', '🍊 평상 위 말랑 홍시', pos, () => {
     hearts.current.burst()
-    audio.squish()
+    playSound('persimmon', () => audio.squish(), { dur: 2500, once: true, fade: 800 })
     showToast('🍊 말랑말랑 홍시 하나 냠냠~ 달다!')
-  }
+  })
   return (
     <group>
-      <Box p={[4.8, 0.36, 1.9]} s={[1.7, 0.1, 1.3]} c="#e3c49b" rad={0.05} />
-      {[-0.7, -0.35, 0, 0.35, 0.7].map((dx) => (
-        <Box key={dx} p={[4.8 + dx, 0.415, 1.9]} s={[0.3, 0.02, 1.25]} c="#ecd2ac" rad={0.01} />
+      <Box p={[-8.25, 0.38, 3.4]} s={[1.6, 0.1, 1.3]} c="#a47a4e" rad={0.04} />
+      {[-0.6, -0.3, 0, 0.3, 0.6].map((dx) => (
+        <Box key={dx} p={[-8.25 + dx, 0.435, 3.4]} s={[0.28, 0.02, 1.25]} c="#b88a5a" rad={0.01} />
       ))}
       {[
-        [-0.75, -0.55],
-        [0.75, -0.55],
-        [-0.75, 0.55],
-        [0.75, 0.55],
+        [-0.7, -0.55],
+        [0.7, -0.55],
+        [-0.7, 0.55],
+        [0.7, 0.55],
       ].map(([dx, dz], i) => (
-        <Cyl key={i} p={[4.8 + dx, 0.16, 1.9 + dz]} r={0.07} h={0.32} c="#c9a07a" />
+        <Cyl key={i} p={[-8.25 + dx, 0.17, 3.4 + dz]} r={0.06} h={0.34} c="#7a5434" />
       ))}
-      <Box p={[4.35, 0.47, 2.15]} s={[0.5, 0.08, 0.5]} c="#f7c1b8" rad={0.04} />
-      <group position={[5.15, 0.45, 1.7]} {...interact('🍊 평상 위 홍시 한 접시', act, pos, 2.2)}>
-        <Cyl p={[0, 0.02, 0]} r={0.22} rb={0.16} h={0.05} c="#f6f1e6" />
+      <Box p={[-8.7, 0.48, 3.0]} s={[0.45, 0.07, 0.45]} c="#b0574a" rad={0.03} />
+      <group position={[-7.95, 0.46, 3.75]} {...h}>
+        <Cyl p={[0, 0.02, 0]} r={0.22} rb={0.16} h={0.05} c="#efe9de" />
         {[
           [0, 0.09, 0],
           [0.09, 0.08, 0.06],
@@ -241,45 +220,12 @@ function Pyeongsang() {
           [0.02, 0.08, -0.09],
         ].map((p, i) => (
           <group key={i} position={p}>
-            <Sph p={[0, 0, 0]} r={0.065} sc={[1, 0.85, 1]} c="#ffa25a" />
-            <Sph p={[0, 0.055, 0]} r={0.03} sc={[1.2, 0.4, 1.2]} c="#8cbf74" />
+            <Sph p={[0, 0, 0]} r={0.065} sc={[1, 0.85, 1]} c="#e8752a" rough={0.45} />
+            <Sph p={[0, 0.055, 0]} r={0.03} sc={[1.2, 0.4, 1.2]} c="#4f7a34" />
           </group>
         ))}
         <Hearts ref={hearts} y={0.3} ch="🧡" />
       </group>
-    </group>
-  )
-}
-
-/* ───────── 뭉게구름 ───────── */
-function Clouds() {
-  const g = useRef()
-  useFrame(({ clock }) => {
-    g.current.position.x = Math.sin(clock.elapsedTime * 0.03) * 4
-  })
-  const puffs = [
-    [-14, 13, -26, 1.2],
-    [6, 15, -30, 1.5],
-    [20, 12, -18, 1.0],
-    [-24, 11, -6, 1.1],
-  ]
-  return (
-    <group ref={g}>
-      {puffs.map(([x, y, z, s], i) => (
-        <group key={i} position={[x, y, z]} scale={s}>
-          {[
-            [0, 0, 0, 1.6],
-            [1.5, -0.2, 0.2, 1.2],
-            [-1.5, -0.3, 0.1, 1.1],
-            [0.6, 0.7, 0, 1.0],
-          ].map(([a, b, c, r], k) => (
-            <mesh key={k} position={[a, b, c]} raycast={() => null} userData={{ noCast: true }}>
-              <sphereGeometry args={[r, 18, 14]} />
-              <meshStandardMaterial color="#ffffff" roughness={1} emissive="#fff6ea" emissiveIntensity={0.35} />
-            </mesh>
-          ))}
-        </group>
-      ))}
     </group>
   )
 }
@@ -290,113 +236,107 @@ function Mailbox() {
   const kick = useRef(0)
   useFrame(({ clock }, dt) => {
     kick.current = Math.max(0, kick.current - dt * 2)
-    flag.current.rotation.z = -kick.current * 1.2 + Math.sin(clock.elapsedTime * 2) * 0.03
+    flag.current.rotation.x = -kick.current * 1.2 + Math.sin(clock.elapsedTime * 2) * 0.03
   })
-  const pos = [3.55, 0, 5.9]
-  const act = () => {
+  const pos = [-6.85, 0, 5.95]
+  const h = useActor('mailbox', 'object', '📮 빨간 우체통 (엄마의 편지)', pos, () => {
     kick.current = 1
     audio.paper()
     openLetter()
-  }
+  })
   return (
-    <group position={pos} {...interact('📮 빨간 우체통 (엄마의 편지가 와 있어요)', act, pos, 2.2)}>
-      <Cyl p={[0, 0.5, 0]} r={0.05} h={1.0} c="#b08a6a" />
+    <group position={pos} rotation-y={Math.PI / 2} {...h}>
+      <Cyl p={[0, 0.5, 0]} r={0.05} h={1.0} c="#5a4636" />
       <group position={[0, 1.15, 0]}>
-        <Box p={[0, 0, 0]} s={[0.42, 0.32, 0.55]} c="#e86a5e" r={0.5} rad={0.07} />
+        <Box p={[0, 0, 0]} s={[0.42, 0.32, 0.55]} c="#b8352b" r={0.45} rad={0.05} />
         <mesh position={[0, 0.16, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <cylinderGeometry args={[0.21, 0.21, 0.55, 16, 1, false, 0, Math.PI]} />
-          <meshStandardMaterial color={soft('#e86a5e')} roughness={0.6} side={THREE.DoubleSide} />
+          <meshStandardMaterial color="#b8352b" roughness={0.45} side={THREE.DoubleSide} />
         </mesh>
-        <Box p={[0, 0.02, -0.28]} s={[0.25, 0.04, 0.01]} c="#3a1a12" />
         <group ref={flag} position={[0.22, 0.05, 0.12]}>
-          <Box p={[0.01, 0.15, 0]} s={[0.02, 0.3, 0.03]} c="#f3d34a" />
-          <Box p={[0.01, 0.27, -0.06]} s={[0.02, 0.08, 0.12]} c="#f3d34a" />
+          <Box p={[0.01, 0.15, 0]} s={[0.02, 0.3, 0.03]} c="#e8b923" />
+          <Box p={[0.01, 0.27, -0.06]} s={[0.02, 0.08, 0.12]} c="#e8b923" />
         </group>
-        {/* 삐죽 나온 편지 */}
-        <Box p={[0, 0.1, -0.3]} s={[0.18, 0.12, 0.02]} c="#fff4dc" rot={[0.2, 0, 0]} />
+        <Box p={[0, 0.1, -0.3]} s={[0.18, 0.12, 0.02]} c="#f6ecd6" rot={[0.2, 0, 0]} />
       </group>
-      <Sparkle p={[0, 1.75, 0]} />
     </group>
   )
 }
 
 /* ───────── 파란 지붕 개집 + 누렁이 ───────── */
+const NUREONG_LINES = ['멍멍! 산책 가자!', '멍! 간식 있어?', '왈왈~ 반가워!']
 function DoghouseNureongi() {
   const dog = useRef()
   const bubble = useRef()
-  const pos = [-4.15, 0, 5.35]
+  const last = useRef('')
+  const pos = [-9.2, 0, -4.9]
   const act = () => {
-    dog.current.wag(2)
-    audio.bark(1.15, 2)
-    bubble.current.say('멍! 멍!', 1800)
+    last.current = pick(NUREONG_LINES, last.current)
+    bubble.current.say(last.current, 2600)
+    playSound(
+      'nureongi',
+      () => {
+        dog.current.wag(1.5)
+        audio.bark(1.15, 2)
+      },
+      { dur: 5500, gap: [1800, 2500] }
+    )
   }
+  const h = useActor('nureongi', 'talk', '🐕 개집 옆 누렁이', pos, act)
   return (
     <group>
-      <group position={[-5.2, 0, 4.45]} rotation={[0, Math.PI / 2, 0]}>
-        <Box p={[0, 0.38, 0]} s={[1.0, 0.76, 1.05]} c="#efe4d2" rad={0.12} />
-        <mesh position={[0, 0.34, 0.52]} scale={[1, 1.15, 1]}>
+      <group position={[-10.3, 0, -5.5]} rotation={[0, Math.PI / 2, 0]}>
+        <Box p={[0, 0.36, 0]} s={[1.0, 0.72, 1.05]} c="#2b2b2d" rad={0.08} />
+        <mesh position={[0, 0.32, 0.53]} scale={[1, 1.15, 1]}>
           <circleGeometry args={[0.22, 24]} />
-          <meshStandardMaterial color="#6e5a4c" />
+          <meshStandardMaterial color="#0e0e0e" />
         </mesh>
-        {/* 둥근 파란 지붕 */}
-        <mesh position={[-0.27, 0.92, 0]} rotation={[0, 0, 0.62]}>
-          <primitive object={roundBoxGeo(0.7, 0.1, 1.25, 0.05)} attach="geometry" />
-          <meshStandardMaterial color={soft('#5f9bd6')} roughness={0.7} />
-        </mesh>
-        <mesh position={[0.27, 0.92, 0]} rotation={[0, 0, -0.62]}>
-          <primitive object={roundBoxGeo(0.7, 0.1, 1.25, 0.05)} attach="geometry" />
-          <meshStandardMaterial color={soft('#5f9bd6')} roughness={0.7} />
-        </mesh>
-        <Box p={[0, 0.66, 0.55]} s={[0.35, 0.14, 0.03]} c="#fff6e0" rad={0.03} />
+        {[-1, 1].map((s) => (
+          <mesh key={s} position={[s * 0.27, 0.9, 0]} rotation={[0, 0, -s * 0.62]} geometry={roundBoxGeo(0.7, 0.1, 1.25, 0.04)}>
+            <meshStandardMaterial color="#2f6fc0" roughness={0.5} />
+          </mesh>
+        ))}
       </group>
-      {/* 밥그릇 2개 */}
-      <Cyl p={[-4.55, 0.05, 3.75]} r={0.12} rb={0.1} h={0.08} c="#dfe3e6" />
-      <Cyl p={[-4.2, 0.05, 3.8]} r={0.12} rb={0.1} h={0.08} c="#f2c6c6" />
-      <group position={pos} rotation={[0, 1.6, 0]} {...interact('🐕 개집 옆 누렁이', act, pos, 2.3)}>
-        <Dog ref={dog} pose="stand" kind="jindo" color="#e8c286" light="#f7e2bb" size={0.95} leash />
+      <Cyl p={[-9.6, 0.05, -4.3]} r={0.12} rb={0.1} h={0.08} c="#c9cdd0" />
+      <Cyl p={[-9.25, 0.05, -4.25]} r={0.12} rb={0.1} h={0.08} c="#c9cdd0" />
+      <group position={pos} rotation={[0, 1.9, 0]} {...h}>
+        <Dog ref={dog} pose="stand" kind="jindo" color="#c79a5c" light="#e2c28e" size={0.95} leash />
         <SpeechBubble ref={bubble} y={1.3} scale={0.8} />
+        <SoundBadge id="nureongi" p={[0, 1.0, 0]} />
       </group>
-      <Rod a={[-4.0, 0.5, 5.35]} b={[-4.75, 0.06, 4.9]} r={0.013} c="#e98f8f" />
+      <Rod a={[-9.05, 0.5, -4.85]} b={[-9.8, 0.06, -5.2]} r={0.012} c="#b8352b" />
     </group>
   )
 }
 
-/* ───────── 고무 다라이 + 고무 화분 (파스텔 코랄) ───────── */
+/* ───────── 빨간 고무 다라이 + 고무 화분 ───────── */
 function RubberTubs() {
-  const water = useRef()
-  useFrame(({ clock }) => {
-    water.current.material.emissiveIntensity = 0.12 + Math.sin(clock.elapsedTime * 3) * 0.04
-  })
-  const coral = soft('#e9826f')
+  const red = '#b8452f'
   return (
     <group>
-      <group position={[-3.25, 0, 4.2]}>
-        <mesh position={[0, 0.17, 0]} geometry={roundCylGeo(0.48, 0.4, 0.34, 28, 0.06)}>
-          <meshStandardMaterial color={coral} roughness={0.7} />
+      <group position={[-6.6, 0, -5.3]}>
+        <mesh position={[0, 0.17, 0]} geometry={roundCylGeo(0.46, 0.38, 0.34, 28, 0.05)}>
+          <meshStandardMaterial color={red} roughness={0.65} />
         </mesh>
         <mesh position={[0, 0.34, 0]} rotation-x={Math.PI / 2}>
-          <torusGeometry args={[0.47, 0.04, 10, 28]} />
-          <meshStandardMaterial color={coral} roughness={0.7} />
+          <torusGeometry args={[0.45, 0.035, 10, 28]} />
+          <meshStandardMaterial color={red} roughness={0.65} />
         </mesh>
-        <mesh ref={water} position={[0, 0.345, 0]} rotation-x={-Math.PI / 2} userData={{ noCast: true }}>
-          <circleGeometry args={[0.44, 28]} />
-          <meshStandardMaterial color="#bfe0ec" emissive="#d9f1fa" emissiveIntensity={0.12} roughness={0.15} />
+        <mesh position={[0, 0.335, 0]} rotation-x={-Math.PI / 2} userData={{ noCast: true }}>
+          <circleGeometry args={[0.42, 28]} />
+          <meshStandardMaterial color="#6f8f9a" roughness={0.1} metalness={0.3} />
         </mesh>
-        {/* 고무 오리 */}
-        <Sph p={[0.1, 0.39, 0.05]} r={0.06} c="#ffe08a" />
-        <Sph p={[0.14, 0.45, 0.07]} r={0.04} c="#ffe08a" />
-        <Sph p={[0.18, 0.445, 0.08]} r={0.015} c="#ffb26b" />
       </group>
       {[
-        [6.55, 3.75, 0.22],
-        [-2.1, 3.75, 0.25],
-        [-5.55, 3.75, 0.2],
+        [-7.4, -2.0, 0.22],
+        [-7.35, 3.5, 0.25],
+        [-4.6, -5.6, 0.2],
       ].map(([x, z, r], i) => (
         <group key={i} position={[x, 0, z]}>
-          <mesh position={[0, r * 0.85, 0]} geometry={roundCylGeo(r, r * 0.75, r * 1.7, 22, 0.04)}>
-            <meshStandardMaterial color={soft('#d9876a')} roughness={0.8} />
+          <mesh position={[0, r * 0.85, 0]} geometry={roundCylGeo(r, r * 0.75, r * 1.7, 22, 0.03)}>
+            <meshStandardMaterial color="#a8432e" roughness={0.7} />
           </mesh>
-          <Sph p={[0, r * 1.8, 0]} r={r * 0.9} sc={[1, 0.7, 1]} c={i === 1 ? '#f4b7c3' : '#9fcf86'} />
+          <Sph p={[0, r * 1.8, 0]} r={r * 0.9} sc={[1, 0.7, 1]} c="#4f7a34" />
         </group>
       ))}
     </group>
@@ -417,16 +357,16 @@ function Onggi({ p, s = 1 }) {
       [0.2, 0.67],
       [0.0, 0.67],
     ].map(([x, y]) => new THREE.Vector2(x, y))
-    return new THREE.LatheGeometry(pts, 24)
+    return new THREE.LatheGeometry(pts, 28)
   }, [])
   return (
     <group position={p} scale={s}>
       <mesh geometry={geo}>
-        <meshStandardMaterial color={soft('#7a5444')} roughness={0.35} />
+        <meshStandardMaterial color="#3e2a20" roughness={0.22} metalness={0.15} />
       </mesh>
       <mesh position={[0, 0.7, 0]} scale={[1, 0.35, 1]}>
-        <sphereGeometry args={[0.22, 18, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color={soft('#6e4c3e')} roughness={0.4} />
+        <sphereGeometry args={[0.22, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2]} />
+        <meshStandardMaterial color="#35241b" roughness={0.3} />
       </mesh>
     </group>
   )
@@ -434,15 +374,13 @@ function Onggi({ p, s = 1 }) {
 function Jangdokdae() {
   return (
     <group>
-      <Box p={[7.35, 0.13, -3.4]} s={[1.75, 0.26, 4.4]} c="#d9cdbb" rad={0.12} />
+      <Box p={[-10.63, 0.13, -1.0]} s={[1.35, 0.26, 3.8]} c="#9a958b" rad={0.08} />
       {[
-        [6.95, -5.0, 0.95],
-        [7.75, -4.9, 1.1],
-        [7.0, -3.9, 0.8],
-        [7.8, -3.75, 0.9],
-        [7.0, -2.85, 0.7],
-        [7.75, -2.75, 0.75],
-        [7.35, -1.8, 0.6],
+        [-10.85, -2.4, 1.05],
+        [-10.4, -1.7, 0.85],
+        [-10.85, -0.9, 1.2],
+        [-10.35, -0.2, 0.75],
+        [-10.8, 0.45, 0.9],
       ].map(([x, z, s], i) => (
         <Onggi key={i} p={[x, 0.26, z]} s={s} />
       ))}
@@ -453,50 +391,60 @@ function Jangdokdae() {
 /* ───────── 감나무 + 백구 + 낙엽 다람쥐 ───────── */
 function PersimmonTree() {
   const leaves = useMemo(() => {
-    const out = []
-    for (let i = 0; i < 12; i++) {
-      const a = (i / 12) * Math.PI * 2
-      const r = i % 2 ? 0.75 : 0.45
-      out.push([Math.cos(a) * r, 2.35 + (i % 3) * 0.3, Math.sin(a) * r, 0.62 + (i % 3) * 0.08])
-    }
-    out.push([0, 3.05, 0, 0.8])
-    return out
+    let k = 3
+    const rnd = () => ((k = (k * 9301 + 49297) % 233280) / 233280)
+    return Array.from({ length: 26 }, (_, i) => {
+      const a = rnd() * Math.PI * 2
+      const r = 0.4 + rnd() * 1.5
+      return [Math.cos(a) * r, 2.5 + rnd() * 1.6, Math.sin(a) * r, 0.55 + rnd() * 0.35, i]
+    })
   }, [])
-  const fruits = useMemo(() => leaves.slice(0, 12).map(([x, y, z, s]) => [x * 1.55, y - s * 0.35, z * 1.55]), [leaves])
+  const fruits = useMemo(() => leaves.slice(0, 22).map(([x, y, z, s]) => [x * 1.25, y - s * 0.45, z * 1.25]), [leaves])
   const crown = useRef()
   useFrame(({ clock }) => {
-    crown.current.rotation.z = Math.sin(clock.elapsedTime * 0.6) * 0.015
+    crown.current.rotation.z = Math.sin(clock.elapsedTime * 0.6) * 0.012
   })
   return (
-    <group position={[6.6, 0, 5.2]}>
-      <Cyl p={[0, 0.95, 0]} r={0.16} rb={0.24} h={1.9} c="#a98266" />
+    <group position={[-8.6, 0, -2.6]}>
+      <Cyl p={[0, 1.0, 0]} r={0.17} rb={0.26} h={2.0} c="#4e3a2c" />
       <group ref={crown}>
-        <Rod a={[0, 1.7, 0]} b={[-0.6, 2.4, 0.3]} r={0.08} c="#a98266" />
-        <Rod a={[0, 1.7, 0]} b={[0.55, 2.5, -0.3]} r={0.08} c="#a98266" />
-        {leaves.map(([x, y, z, s], i) => (
-          <Sph key={i} p={[x, y, z]} r={s} sc={[1, 0.85, 1]} c={i % 3 ? '#8fc47a' : '#a3d08a'} seg={20} />
+        <Rod a={[0, 1.8, 0]} b={[-0.9, 2.8, 0.5]} r={0.09} c="#4e3a2c" />
+        <Rod a={[0, 1.8, 0]} b={[0.8, 2.9, -0.4]} r={0.09} c="#4e3a2c" />
+        {leaves.map(([x, y, z, s, i]) => (
+          <Sph key={i} p={[x, y, z]} r={s} sc={[1, 0.8, 1]} c={i % 3 ? '#3f6a2e' : '#4c7a36'} seg={14} />
         ))}
         {fruits.map((p, i) => (
-          <Sph key={'f' + i} p={p} r={0.1} c="#ff9a4a" seg={14} rough={0.5} />
+          <Sph key={'f' + i} p={p} r={0.09} c="#e8702a" seg={12} rough={0.45} />
         ))}
       </group>
     </group>
   )
 }
 
+const BAEKGU_LINES = ['멍! 반가워!', '멍멍~ 같이 놀자!', '킁킁… 맛있는 냄새!']
 function Baekgu() {
   const dog = useRef()
   const bubble = useRef()
-  const pos = [5.35, 0, 5.4]
+  const last = useRef('')
+  const pos = [-9.2, 0, -1.0]
   const act = () => {
-    dog.current.wag(2)
-    audio.bark(1.0, 1)
-    bubble.current.say('멍! 🐾', 1800)
+    last.current = pick(BAEKGU_LINES, last.current)
+    bubble.current.say(last.current, 2600)
+    playSound(
+      'baekgu',
+      () => {
+        dog.current.wag(1.5)
+        audio.bark(1.0, 1)
+      },
+      { dur: 5500, gap: [1700, 2400] }
+    )
   }
+  const h = useActor('baekgu', 'talk', '🐶 감나무 아래 하얀 백구', pos, act)
   return (
-    <group position={pos} rotation={[0, -2.6, 0]} {...interact('🐶 감나무 아래 하얀 백구', act, pos, 2.3)}>
-      <Dog ref={dog} pose="sit" kind="jindo" color="#fffaf0" light="#ffffff" size={1.0} leash />
-      <SpeechBubble ref={bubble} y={1.45} scale={0.8} />
+    <group position={pos} rotation={[0, 1.3, 0]} {...h}>
+      <Dog ref={dog} pose="sit" kind="jindo" color="#f3efe6" light="#fbf8f2" size={1.0} leash />
+      <SpeechBubble ref={bubble} y={1.4} scale={0.8} />
+      <SoundBadge id="baekgu" p={[0, 1.12, 0]} />
     </group>
   )
 }
@@ -505,13 +453,12 @@ function SquirrelLeaves() {
   const sq = useRef()
   const pile = useRef()
   const hop = useRef(0)
-  const hearts = useRef()
   const leafs = useMemo(
     () =>
       Array.from({ length: 45 }, (_, i) => {
         const a = Math.random() * Math.PI * 2
         const r = Math.sqrt(Math.random()) * 0.45
-        return [Math.cos(a) * r, 0.02 + (0.65 - r) * 0.35 * Math.random(), Math.sin(a) * r, Math.random() * 6, ['#eeaa78', '#e39a6c', '#f2c47e', '#d9946a'][i % 4]]
+        return [Math.cos(a) * r, 0.02 + (0.45 - r) * 0.35 * Math.random(), Math.sin(a) * r, Math.random() * 6, ['#b5642a', '#9a4e22', '#c98a3a', '#8a4a22'][i % 4]]
       }),
     []
   )
@@ -522,15 +469,20 @@ function SquirrelLeaves() {
     sq.current.rotation.y = -0.6 + Math.sin(clock.elapsedTime * 0.8) * 0.3 + h * 6
     pile.current.rotation.y = Math.sin(clock.elapsedTime * 25) * 0.04 * h
   })
-  const pos = [7.55, 0, 3.55]
-  const act = () => {
-    hop.current = 1
-    audio.leaves(2.4)
-    setTimeout(() => audio.squirrel(), 300)
-    hearts.current.burst()
-  }
+  const pos = [-7.9, 0, -4.2]
+  const h = useActor('leaves', 'object', '🐿️ 낙엽 더미와 다람쥐 (바스락)', pos, () =>
+    playSound(
+      'leaves',
+      () => {
+        hop.current = 1
+        audio.leaves(1.6)
+        if (Math.random() < 0.6) setTimeout(() => audio.squirrel(), 300)
+      },
+      { dur: 6000, gap: [1500, 1900] }
+    )
+  )
   return (
-    <group position={pos} {...interact('🐿️ 낙엽 더미와 다람쥐 (바스락)', act, pos, 2.3)}>
+    <group position={pos} {...h}>
       <group ref={pile}>
         {leafs.map(([x, y, z, r, c], i) => (
           <mesh key={i} position={[x, y, z]} rotation={[-Math.PI / 2 + (i % 5) * 0.2, 0, r]}>
@@ -539,17 +491,16 @@ function SquirrelLeaves() {
           </mesh>
         ))}
       </group>
-      <group ref={sq} position={[-0.2, 0.05, 0.45]}>
-        <Sph p={[0, 0.15, 0]} r={0.1} sc={[0.9, 1.1, 1.2]} c="#c08a62" />
-        <Sph p={[0, 0.3, 0.08]} r={0.07} c="#c08a62" />
-        <Sph p={[0, 0.27, 0.14]} r={0.025} c="#f0dcc0" />
-        <Sph p={[-0.035, 0.37, 0.07]} r={0.02} c="#c08a62" />
-        <Sph p={[0.035, 0.37, 0.07]} r={0.02} c="#c08a62" />
-        <Sph p={[0, 0.27, -0.15]} r={0.09} sc={[0.8, 1.6, 0.8]} c="#d39a6e" />
-        <Sph p={[0.02, 0.31, 0.13]} r={0.016} c="#2a2220" raw />
+      <group ref={sq} position={[0.4, 0.05, 0.2]}>
+        <Sph p={[0, 0.15, 0]} r={0.1} sc={[0.9, 1.1, 1.2]} c="#8a5a34" />
+        <Sph p={[0, 0.3, 0.08]} r={0.07} c="#8a5a34" />
+        <Sph p={[0, 0.27, 0.14]} r={0.025} c="#efe0c8" />
+        <Sph p={[-0.035, 0.37, 0.07]} r={0.02} c="#8a5a34" />
+        <Sph p={[0.035, 0.37, 0.07]} r={0.02} c="#8a5a34" />
+        <Sph p={[0, 0.27, -0.15]} r={0.09} sc={[0.8, 1.6, 0.8]} c="#a26a3c" />
+        <Sph p={[0.02, 0.31, 0.13]} r={0.014} c="#111" raw />
       </group>
-      <Hearts ref={hearts} y={0.6} ch="🍂" />
-      <Sparkle p={[0, 0.7, 0]} />
+      <SoundBadge id="leaves" p={[0, 0.85, 0]} />
     </group>
   )
 }
@@ -557,120 +508,109 @@ function SquirrelLeaves() {
 /* ───────── 처마 빨랫줄 (분홍 수건 · 체크 담요 · 흰 수건 · 파란 수건) ───────── */
 function Laundry() {
   const items = useRef([])
-  const blanket = useMemo(() => plaid('#df8a80', '#fbf1e2', '#b26a64', [2, 2]), [])
+  const blanket = useMemo(() => plaid('#9b2b26', '#efe4cf', '#2a1a18', [2, 2]), [])
   const list = [
-    { x: -5.3, w: 0.6, h: 0.75, c: '#f6b0ab' },
-    { x: -4.4, w: 1.0, h: 1.05, map: blanket },
-    { x: -3.55, w: 0.5, h: 0.65, c: '#f4f2ec' },
-    { x: -3.0, w: 0.5, h: 0.6, c: '#9fb8e6' },
+    { z: -5.2, w: 0.6, h: 0.72, c: '#e98a86' },
+    { z: -4.2, w: 1.05, h: 1.05, map: blanket },
+    { z: -3.3, w: 0.5, h: 0.62, c: '#f2f0ea' },
+    { z: -2.75, w: 0.5, h: 0.58, c: '#3157a8' },
   ]
   useFrame(({ clock }) => {
     const t = clock.elapsedTime
-    items.current.forEach((m, i) => {
-      if (m) m.rotation.x = Math.sin(t * 1.3 + i) * 0.07
-    })
+    items.current.forEach((m, i) => m && (m.rotation.z = Math.sin(t * 1.3 + i) * 0.06))
   })
-  const Y = 2.35
-  const Z = 2.2
+  const Y = 2.5
+  const X = -5.5
   return (
     <group>
-      <Rod a={[-5.85, Y, Z]} b={[-2.55, Y, Z]} r={0.008} c="#dddddd" />
+      <Rod a={[X, Y, -5.7]} b={[X, Y, -2.3]} r={0.008} c="#dddddd" />
       {list.map((it, i) => (
-        <group key={i} ref={(el) => (items.current[i] = el)} position={[it.x, Y, Z]}>
-          <mesh position={[0, -it.h / 2, 0]} raycast={() => null} geometry={roundBoxGeo(it.w, it.h, 0.04, 0.02)}>
+        <group key={i} ref={(el) => (items.current[i] = el)} position={[X, Y, it.z]}>
+          <mesh position={[0, -it.h / 2, 0]} rotation-y={Math.PI / 2} raycast={() => null} geometry={roundBoxGeo(it.w, it.h, 0.035, 0.015)}>
             <meshStandardMaterial color={it.map ? '#ffffff' : it.c} map={it.map} roughness={1} />
           </mesh>
-          <Box p={[0, 0.0, 0.025]} s={[it.w + 0.02, 0.04, 0.03]} c={it.map ? '#8a2420' : it.c} />
         </group>
       ))}
     </group>
   )
 }
 
-/* ───────── 처마 풍경 (터치하면 땡그랑) ───────── */
+/* ───────── 처마 풍경 ───────── */
 function WindBell() {
   const g = useRef()
   const swing = useRef(0)
   useFrame(({ clock }, dt) => {
-    swing.current = Math.max(0, swing.current - dt * 0.5)
+    swing.current = Math.max(0, swing.current - dt * 0.6)
     const t = clock.elapsedTime
     g.current.rotation.z = Math.sin(t * 1.4) * 0.06 + Math.sin(t * 9) * swing.current * 0.5
     g.current.rotation.x = Math.sin(t * 7) * swing.current * 0.3
   })
-  const pos = [2.0, 0, 3.15]
-  const act = () => {
-    swing.current = 1
-    audio.windBell()
-  }
+  const pos = [-7.3, 0, -1.2]
+  const h = useActor('windbell', 'object', '🎐 처마 끝 풍경 (땡그랑)', pos, () =>
+    playSound(
+      'windbell',
+      () => {
+        swing.current = 1
+        audio.windBell()
+      },
+      { dur: 6500, gap: [2000, 2600] }
+    ), 2.6)
   return (
-    <group position={[2.0, 2.6, 3.15]}>
-      <group ref={g} {...interact('🎐 처마 끝 풍경 (땡그랑)', act, pos, 2.6)}>
+    <group position={[-7.3, 2.55, -1.2]}>
+      <group ref={g} {...h}>
         <Cyl p={[0, -0.12, 0]} r={0.006} h={0.24} c="#555" />
         <mesh position={[0, -0.32, 0]}>
           <cylinderGeometry args={[0.05, 0.11, 0.18, 16, 1, true]} />
-          <meshStandardMaterial color="#c9b98a" metalness={0.5} roughness={0.35} side={THREE.DoubleSide} />
+          <meshStandardMaterial color="#7a6a3e" metalness={0.75} roughness={0.35} side={THREE.DoubleSide} />
         </mesh>
-        <Sph p={[0, -0.25, 0]} r={0.05} sc={[1, 0.6, 1]} c="#c9b98a" />
+        <Sph p={[0, -0.25, 0]} r={0.05} sc={[1, 0.6, 1]} c="#7a6a3e" />
         <Cyl p={[0, -0.47, 0]} r={0.005} h={0.25} c="#555" />
-        {/* 물고기 모양 바람판 */}
         <mesh position={[0, -0.66, 0]}>
           <capsuleGeometry args={[0.05, 0.08, 4, 10]} />
-          <meshStandardMaterial color="#9cc4ef" />
+          <meshStandardMaterial color="#3a6ab5" />
         </mesh>
-        <Hit p={[0, -0.4, 0]} s={[0.45, 0.9, 0.45]} />
+        <mesh position={[0, -0.4, 0]}>
+          <boxGeometry args={[0.45, 0.9, 0.45]} />
+          <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+        </mesh>
       </group>
-      <Sparkle p={[0, 0.05, 0]} />
+      <SoundBadge id="windbell" p={[0, -1.1, 0.35]} size={0.26} />
     </group>
   )
 }
 
-/* ───────── 초록 철제 기둥 (처마) + 갈색 홈통 ───────── */
+/* ───────── 초록 철제 기둥 ───────── */
 function EavePosts() {
   return (
     <group>
-      {[-5.8, -2.6, 0.9, 3.6, 6.2].map((x) => (
-        <Cyl key={x} p={[x, 1.29, 3.3]} r={0.06} h={2.58} c="#8cc0a0" raw />
+      {[-5.7, -2.6, -0.2, 3.0].map((z) => (
+        <Cyl key={z} p={[-7.1, 1.29, z]} r={0.045} h={2.58} c="#2f7d55" raw />
       ))}
-      <Cyl p={[6.2, 1.3, 3.55]} r={0.055} h={2.5} c="#cf9c7c" raw />
-      <Cyl p={[-5.85, 1.3, 3.55]} r={0.055} h={2.5} c="#cf9c7c" raw />
+      <Cyl p={[-7.62, 1.3, 4.5]} r={0.05} h={2.5} c="#a8673a" raw />
     </group>
   )
 }
 
-/* ───────── 뒷산 (파스텔 동글 능선 + 바위 봉우리) ───────── */
+/* ───────── 뒷산 능선 ───────── */
 function Mountains() {
   const hills = [
-    [-26, -40, 22, 13, 10, '#a9c79a'],
-    [-4, -46, 24, 17, 11, '#9fbf92'],
-    [20, -42, 22, 14, 10, '#adc99d'],
-    [-40, -18, 16, 9, 12, '#b6d0a6'],
-    [38, -20, 16, 9, 12, '#b6d0a6'],
+    [-30, -36, 26, 15, 12, '#4d6a3e'],
+    [-6, -44, 28, 20, 12, '#46623a'],
+    [20, -40, 24, 15, 11, '#557146'],
+    [-44, -6, 16, 10, 22, '#5d7a4a'],
   ]
   return (
     <group>
       {hills.map(([x, z, r, h, d, c], i) => (
         <mesh key={i} position={[x, -3, z]} scale={[r, h, d]} raycast={() => null} userData={{ noCast: true }}>
-          <sphereGeometry args={[1, 36, 18, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <sphereGeometry args={[1, 40, 18, 0, Math.PI * 2, 0, Math.PI / 2]} />
           <meshStandardMaterial color={c} roughness={1} />
         </mesh>
       ))}
-      <mesh position={[0, 12.5, -45]} scale={[3.2, 2.4, 2.4]} raycast={() => null} userData={{ noCast: true }}>
-        <sphereGeometry args={[1, 20, 14]} />
-        <meshStandardMaterial color="#d9d6cc" roughness={1} />
+      <mesh position={[-4, 14.5, -44]} scale={[3.4, 2.6, 2.6]} raycast={() => null} userData={{ noCast: true }}>
+        <dodecahedronGeometry args={[1, 1]} />
+        <meshStandardMaterial color="#9c998f" roughness={1} />
       </mesh>
-      {/* 집 뒤 둥근 소나무 */}
-      {[
-        [-3, -9.3],
-        [2.5, -9.6],
-        [7.5, -9.0],
-        [-9, -9.4],
-      ].map(([x, z], i) => (
-        <group key={i} position={[x, 0, z]}>
-          <Cyl p={[0, 1.0, 0]} r={0.16} h={2} c="#a98266" />
-          <Sph p={[0, 2.6, 0]} r={1.25} sc={[1, 1.15, 1]} c="#8dbb84" />
-          <Sph p={[0, 3.7, 0]} r={0.85} c="#99c58e" />
-        </group>
-      ))}
     </group>
   )
 }
@@ -680,9 +620,8 @@ export default function Yard() {
     <group>
       <Ground />
       <Walls />
-      <FlowerBed x0={-5.95} x1={-2.8} z0={6.2} z1={6.85} seed={3} />
-      <FlowerBed x0={3.9} x1={7.9} z0={6.2} z1={6.85} seed={7} />
-      <FlowerBed x0={7.85} x1={8.3} z0={-0.6} z1={2.8} seed={11} />
+      <FlowerBed x0={-11.4} x1={-8.7} z0={5.55} z1={6.35} seed={3} />
+      <FlowerBed x0={-6.45} x1={-4.1} z0={5.55} z1={6.35} seed={7} />
       <Veggie />
       <Pyeongsang />
       <Mailbox />
@@ -696,7 +635,6 @@ export default function Yard() {
       <WindBell />
       <EavePosts />
       <Mountains />
-      <Clouds />
     </group>
   )
 }

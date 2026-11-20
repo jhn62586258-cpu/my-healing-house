@@ -3,7 +3,7 @@ import * as THREE from 'three'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 import { world } from '../store'
 
-/* ───────── 파스텔 필터: 원색을 빼고 따뜻한 크림 톤으로 ───────── */
+/* ───────── 차분한 자연광 톤 필터 ───────── */
 const _c = new THREE.Color()
 const _hsl = {}
 const softCache = new Map()
@@ -12,10 +12,8 @@ export function soft(c) {
   if (softCache.has(c)) return softCache.get(c)
   _c.set(c)
   _c.getHSL(_hsl)
-  const s = _hsl.s * 0.72
-  const l = Math.min(0.9, _hsl.l * 0.84 + 0.12)
-  _c.setHSL(_hsl.h, s, l)
-  _c.lerp(new THREE.Color('#fff1dc'), 0.06) // 살짝 크림빛
+  // 자연광 미니어처 톤: 채도만 살짝 눌러 차분하게
+  _c.setHSL(_hsl.h, _hsl.s * 0.88, _hsl.l)
   const out = '#' + _c.getHexString()
   softCache.set(c, out)
   return out
@@ -56,7 +54,7 @@ export const Box = ({ p = [0, 0, 0], s = [1, 1, 1], c = '#ccc', r = 0.9, m = 0, 
     <mesh position={p} rotation={rot} geometry={geo} {...rest}>
       <meshStandardMaterial
         color={raw ? c : soft(c)}
-        roughness={Math.max(0.55, r)}
+        roughness={r}
         metalness={m * 0.5}
         emissive={emissive || '#000000'}
         emissiveIntensity={ei}
@@ -119,7 +117,7 @@ export const HitCyl = ({ p = [0, 0, 0], r = 0.5, h = 1, ...rest }) => (
 
 export function FadeBox({ x0, x1, z0, z1, y0 = 0, y1 = 3, c = '#f1e6cc', r = 1, map, tag, onClick = (e) => e.stopPropagation() }) {
   const ref = useRef()
-  const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: map ? c : soft(c), roughness: r, transparent: true, ...(map ? { map } : {}) }), [c, r, map])
+  const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: map ? c : soft(c), roughness: r, ...(map ? { map } : {}) }), [c, r, map])
   const geo = useMemo(() => roundBoxGeo(x1 - x0, y1 - y0, z1 - z0, 0.06), [x0, x1, y0, y1, z0, z1])
   useEffect(() => {
     const entry = { box: [x0, x1, z0, z1, y1], mat, mesh: ref.current, a: 1, tag }
@@ -137,7 +135,7 @@ export function FadeBox({ x0, x1, z0, z1, y0 = 0, y1 = 3, c = '#f1e6cc', r = 1, 
     [mat]
   )
   return (
-    <mesh ref={ref} position={[(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2]} material={mat} geometry={geo} raycast={raycast} onClick={onClick} userData={{ noCast: true }} />
+    <mesh ref={ref} position={[(x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2]} material={mat} geometry={geo} raycast={raycast} onClick={onClick} />
   )
 }
 

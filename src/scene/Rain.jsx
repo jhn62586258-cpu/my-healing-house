@@ -43,10 +43,10 @@ export default function Rain() {
     const seed = new Float32Array(MAX * 2)
     let i = 0
     while (i < MAX) {
-      const x = rnd(-11, 8.8)
-      const z = rnd(-8, 7.6)
-      if (x > -11.2 && x < 6.8 && z > -8 && z < 3.8) continue // 지붕·처마 밑엔 비 없음
-      if (x < -5.5 && z < 5.6 && x > -11.2) continue
+      const x = rnd(-12.3, 9.3)
+      const z = rnd(-10.2, 7.2)
+      if (x > -7.6 && x < 9.4 && z > -6.4 && z < 4.8) continue // 지붕·처마·내 방 위엔 비 없음
+      if (z < -6.3 && x < -3.8) continue // 창고채
       const y = Math.random() * 10
       pos.set([x, y, z, x, y, z], i * 6)
       end[i * 2] = 0
