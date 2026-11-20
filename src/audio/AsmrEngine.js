@@ -566,3 +566,4 @@ export function ambientFor(name, ms = 6500) {
   }, Math.max(500, ms - 2200))
   return performance.now() + ms
 }
+

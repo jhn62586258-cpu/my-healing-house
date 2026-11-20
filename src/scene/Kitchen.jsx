@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import { world, useActor, useStore, showToast, playAmbient, FLOOR, MOM_LINES, S } from '../store'
 import { Box, Cyl, Sph, roundCylGeo } from './parts'
 import { SafeModel, Real } from './ModelKit'
+import { ZoneGroup, KitchenMomSet, DiningSet } from './Sets'
 import { Mom } from './Character'
 import { SpeechBubble, Steam, SoundBadge } from './Fx'
 import { pick } from './Living'
@@ -11,8 +12,8 @@ const F = FLOOR
 const TOPY = F + 0.86
 const CAB = '#7a5132'
 
-/* ───────── 냉장고 · 조리대 · 수납장 · 식탁 ───────── */
-function Counter() {
+/* ───────── (예전 낱개) 냉장고 + 부엌 조명 ───────── */
+function Fridge() {
   return (
     <group>
       {/* 냉장고 (실제 크기, 싱크대 바로 왼쪽 벽에 붙임) */}
@@ -30,7 +31,14 @@ function Counter() {
         ))}
       </Real>
       {/* (예전 하얀 옆 조리대 도형은 제거) */}
-      <Dining />
+    </group>
+  )
+}
+
+
+function KitchenLights() {
+  return (
+    <group>
       {/* 부엌 펜던트 등 */}
       <Cyl p={[3.4, 2.85, -3.6]} r={0.006} h={0.45} c="#3a2a1a" />
       <mesh position={[3.4, 2.55, -3.6]} geometry={roundCylGeo(0.07, 0.17, 0.18, 24, 0.02)}>
@@ -42,7 +50,6 @@ function Counter() {
     </group>
   )
 }
-
 
 /* ───────── 주방 싱크대/수납장 (kitchencabinet.glb) + 뚝배기 ───────── */
 const CAB_POS = [3.8, F, -5.92]
@@ -276,9 +283,19 @@ function MomAtStove() {
 export default function Kitchen() {
   return (
     <group>
-      <Counter />
-      <Cabinet />
-      <MomAtStove />
+      <ZoneGroup zone="house">
+        <KitchenMomSet
+          legacy={
+            <>
+              <Fridge />
+              <Cabinet />
+              <MomAtStove />
+            </>
+          }
+        />
+        <DiningSet legacy={<Dining />} />
+      </ZoneGroup>
+      <KitchenLights />
     </group>
   )
 }

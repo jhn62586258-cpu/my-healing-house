@@ -94,7 +94,7 @@ export const DOORS = {
 const doorCenter = (d) => [d.x, (d.z0 + d.z1) / 2]
 
 export const SPOTS = {
-  maru: { label: '마루/거실', x: -0.6, z: 1.3, yaw: Math.PI - 0.22 },
+  maru: { label: '마루/거실', x: -0.7, z: 0.7, yaw: Math.PI - 0.2 },
   room: { label: '내 방 아지트', x: 6.3, z: -0.5, yaw: Math.PI / 2 },
   yard: { label: '앞마당', x: -8.2, z: 4.8, yaw: Math.PI * 0.82 },
 }
@@ -112,6 +112,7 @@ export const world = {
   doors: { main: { open: 0, manual: 0 }, room: { open: 0, manual: 0 } },
   fades: [], // 카메라 시야를 가리면 반투명해지는 벽
   playing: {}, // 소리 재생 중인 사물 id → 끝나는 시각(ms)
+  seats: { pyeong: { x: -5.85, z: -3.35, y: 0.42 } }, // 평상 앉는 자리 (세트 모델이 실제 높이로 갱신)
   // 충돌 박스 [minX, maxX, minZ, maxZ, doorId?]
   colliders: [
     // 본채 외벽
@@ -128,33 +129,31 @@ export const world = {
     [8.9, 9.1, -4, 3],
     [5.2, 9.1, 2.9, 3.1],
     // 거실
-    R(-1.3, -5.6, 1.9, 0.45), // TV 장식장
-    R(0.55, -5.35, 0.7, 0.55), // 난로
+    // ── 세트 모델 (중심 · 실제 크기 m) — 배치는 src/scene/Sets.jsx 의 PLACE 와 같게 ──
+    R(-1.0, -5.55, 2.8, 0.55), // tv_stove_set (TV 거실장 + 난로)
     R(-3.1, -5.5, 0.45, 0.45), // 창가 화분
-    R(-2.8, -2.6, 1.45, 1.05), // 소파(아빠)
-    R(-1.25, -3.6, 0.9, 0.55), // 낮은 테이블
-    R(-3.72, -4.05, 0.45, 0.45), // 스탠드 협탁
-    R(-3.3, 0.6, 0.5, 0.5), // 보조 의자
+    R(-2.75, -2.6, 1.7, 1.1), // living_sofa_set 소파 부분
+    R(-1.25, -3.6, 0.9, 0.55), // 낮은 테이블 + 전화기
     R(1.0, -1.1, 0.38, 0.38), // 유칼립투스 화분
     // 부엌
-    R(1.95, -5.46, 0.78, 0.72), // 냉장고
-    R(3.8, -5.52, 2.2, 0.62), // 싱크대·수납장
-    R(3.65, -4.85, 0.5, 0.45), // 엄마
-    R(2.6, 0.3, 1.5, 1.85), // 식탁+의자
+    R(3.35, -5.5, 2.8, 0.7), // kitchen_mom_set (냉장고·싱크대)
+    R(3.4, -4.75, 0.5, 0.45), // 엄마 자리
+    R(2.6, 0.3, 1.6, 1.85), // dining_set
     [1.32, 1.48, -1.58, -1.42], // 나무 기둥
     // 내 방 가구
-    [5.3, 7.35, -3.95, -2.55], // 이부자리
-    [7.5, 9.0, -2.75, -2.45], // 아지트 담요(뒤)
-    [7.5, 9.0, 0.95, 1.25], // 아지트 담요(앞)
+    R(6.45, -3.25, 1.2, 1.2), // bed (내 방 왼쪽)
+    R(8.3, -3.65, 1.0, 0.45), // bookshelf (왼쪽 뒤)
+    R(8.6, -1.85, 0.6, 0.12), // desk_hideout 담요 옆(뒤)
+    R(8.6, 0.65, 0.6, 0.12), // desk_hideout 담요 옆(앞)
     // 앞마당
     [-11.7, -3.95, -9.7, -6.35], // 창고채
     ...[-5.7, -2.6, -0.2, 3.0].map((z) => [-7.18, -7.02, z - 0.08, z + 0.08]), // 처마 기둥
-    [-10.9, -9.7, -6.1, -4.9], // 개집
+    R(-6.1, -5.55, 1.35, 1.0), // doghouse_set (처마 아래 왼쪽 벽 앞)
     [-11.3, -9.95, -2.9, 0.9], // 장독대
-    [-8.85, -8.35, -2.85, -2.35], // 감나무
-    [-7.1, -6.1, -5.8, -4.8], // 다라이
-    [-9.05, -7.45, 2.75, 4.05], // 평상
-    [-11.2, -9.3, 2.4, 4.6], // 텃밭
+    R(-8.8, 3.1, 0.45, 0.45), // persimmon_tree 줄기
+    [-10.1, -9.1, -6.1, -5.1], // 다라이
+    R(-5.85, -3.35, 1.15, 1.6), // pyeongsang (처마 아래 왼쪽)
+    [-11.25, -9.25, 0.85, 3.05], // 텃밭
     [-11.4, -8.7, 5.55, 6.35], // 꽃밭(왼)
     [-6.45, -4.1, 5.55, 6.35], // 꽃밭(오)
     [-7.05, -6.65, 5.75, 6.15], // 우체통
@@ -171,7 +170,9 @@ export const inHouse = (x, z) => x > -4 && x < 5.2 && z > -6 && z < 4.4
 export const inRoom = (x, z) => x >= 5.2 && x < 9 && z > -4 && z < 3
 export const inBackRoom = inRoom
 export const inside = (x, z) => inHouse(x, z) || inRoom(x, z)
-export const nearDesk = (x, z) => inRoom(x, z) && x > 6.9 && z > -2.6 && z < 1.0
+export const nearDesk = (x, z) => inRoom(x, z) && x > 7.0 && z > -1.9 && z < 0.7
+/* 구역: 'house'(마루/거실·부엌) | 'yard'(앞마당) | 'room'(내 방 아지트) */
+export const zoneOf = (x, z) => (inRoom(x, z) ? 'room' : inHouse(x, z) ? 'house' : 'yard')
 export const underEave = (x, z) => x > -7.5 && x <= -4 && z > -6.3 && z < 4.7
 export function groundY(x, z) {
   if (inside(x, z)) return FLOOR
@@ -340,12 +341,12 @@ export function toggleSit() {
   p.path = []
   world.pending = null
   // 평상 근처면 평상 위로
-  const PY = [-8.25, 3.4]
-  if (Math.hypot(p.x - PY[0], p.z - PY[1]) < 2.2) {
-    p.x = PY[0] + 0.2
-    p.z = PY[1] + 0.25
-    p.sitY = 0.42
-    p.rot = Math.PI * 0.5
+  const PY = world.seats.pyeong
+  if (Math.hypot(p.x - PY.x, p.z - PY.z) < 2.4) {
+    p.x = PY.x
+    p.z = PY.z
+    p.sitY = PY.y
+    p.rot = -Math.PI / 2
   } else p.sitY = 0
   setState({ sitting: true })
   showToast(p.sitY ? '🪵 평상에 걸터앉아 쉬는 중…' : '🧘 마루에 앉아 잠깐 쉬어요', 1800)

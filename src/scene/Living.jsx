@@ -6,6 +6,7 @@ import * as audio from '../audio/AsmrEngine'
 import { rugTex, clockFace, tvScreen } from './textures'
 import { Box, Cyl, Sph, roundBoxGeo, roundCylGeo } from './parts'
 import { SafeModel, Real, MODELS } from './ModelKit'
+import { ZoneGroup, LivingSofaSet, TvStoveSet } from './Sets'
 import { Dad } from './Character'
 import { Dog } from './Dogs'
 import { SpeechBubble, Hearts, Steam, SoundBadge } from './Fx'
@@ -383,40 +384,10 @@ function Poodle() {
   )
 }
 
-/* ───────── 화분 · 스탠드 · 보조 의자 · 조명 ───────── */
-function Props() {
+/* (예전 낱개) 협탁 스탠드 · 보조 의자 — 소파 세트가 없을 때만 */
+function LegacyLampChair() {
   return (
     <group>
-      {/* 창가 화분 (plant.glb) */}
-      <SafeModel
-        name="plant"
-        position={[-3.1, F, -5.5]}
-        fallback={
-          <group>
-            <mesh position={[0, 0.22, 0]} geometry={roundCylGeo(0.22, 0.17, 0.44, 24, 0.04)}>
-              <meshStandardMaterial color="#6e4a32" roughness={0.8} />
-            </mesh>
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <Sph key={i} p={[Math.cos(i) * 0.22, 0.9 + (i % 3) * 0.25, Math.sin(i) * 0.18]} r={0.24} sc={[1, 0.8, 1]} c={i % 2 ? '#4f6e3a' : '#5d7d44'} />
-            ))}
-          </group>
-        }
-      />
-      {/* 모서리 유칼립투스 (EucalyptusPlant.glb) */}
-      <SafeModel
-        name="eucalyptus"
-        position={[1.0, F, -1.1]}
-        fallback={
-          <group>
-            <mesh position={[0, 0.18, 0]} geometry={roundCylGeo(0.17, 0.13, 0.36, 24, 0.03)}>
-              <meshStandardMaterial color="#d9cfc0" roughness={0.7} />
-            </mesh>
-            {[0, 1, 2, 3].map((i) => (
-              <Sph key={i} p={[Math.cos(i * 1.6) * 0.12, 0.6 + i * 0.12, Math.sin(i * 1.6) * 0.12]} r={0.17} sc={[1, 1.3, 1]} c="#7d9a78" />
-            ))}
-          </group>
-        }
-      />
       {/* 소파 옆 협탁 + 스탠드 (tablelamp.glb) */}
       <Real position={[-3.72, F, -4.05]}>
       <Box p={[0, 0.27, 0]} s={[0.45, 0.54, 0.45]} c="#5a3a24" r={0.6} />
@@ -455,6 +426,44 @@ function Props() {
           </group>
         }
       />
+    </group>
+  )
+}
+
+/* ───────── 화분 · 방석 · 조명 ───────── */
+function Props() {
+  return (
+    <group>
+      {/* 창가 화분 (plant.glb) */}
+      <SafeModel
+        name="plant"
+        position={[-3.1, F, -5.5]}
+        fallback={
+          <group>
+            <mesh position={[0, 0.22, 0]} geometry={roundCylGeo(0.22, 0.17, 0.44, 24, 0.04)}>
+              <meshStandardMaterial color="#6e4a32" roughness={0.8} />
+            </mesh>
+            {[0, 1, 2, 3, 4, 5].map((i) => (
+              <Sph key={i} p={[Math.cos(i) * 0.22, 0.9 + (i % 3) * 0.25, Math.sin(i) * 0.18]} r={0.24} sc={[1, 0.8, 1]} c={i % 2 ? '#4f6e3a' : '#5d7d44'} />
+            ))}
+          </group>
+        }
+      />
+      {/* 모서리 유칼립투스 (EucalyptusPlant.glb) */}
+      <SafeModel
+        name="eucalyptus"
+        position={[1.0, F, -1.1]}
+        fallback={
+          <group>
+            <mesh position={[0, 0.18, 0]} geometry={roundCylGeo(0.17, 0.13, 0.36, 24, 0.03)}>
+              <meshStandardMaterial color="#d9cfc0" roughness={0.7} />
+            </mesh>
+            {[0, 1, 2, 3].map((i) => (
+              <Sph key={i} p={[Math.cos(i * 1.6) * 0.12, 0.6 + i * 0.12, Math.sin(i * 1.6) * 0.12]} r={0.17} sc={[1, 1.3, 1]} c="#7d9a78" />
+            ))}
+          </group>
+        }
+      />
       {/* 방석 */}
       <Box p={[-1.6, F + 0.04, 0.4]} s={[0.55, 0.08, 0.55]} c="#a5674a" r={1} rad={0.04} />
       <Box p={[-1.5, F + 0.11, 0.45]} s={[0.5, 0.06, 0.5]} c="#d4b483" r={1} rad={0.03} rot={[0, 0.3, 0]} />
@@ -480,13 +489,29 @@ function Props() {
 export default function Living() {
   return (
     <group>
-      <Rug />
-      <TV />
-      <SofaDad />
-      <PhoneTable />
+      {/* 거실 세트 (구역: 마루/거실) — 세트 파일이 없으면 예전 낱개 모델/도형으로 대체 */}
+      <ZoneGroup zone="house">
+        <LivingSofaSet
+          legacy={
+            <>
+              <Rug />
+              <SofaDad />
+              <Poodle />
+              <LegacyLampChair />
+            </>
+          }
+        />
+        <TvStoveSet
+          legacy={
+            <>
+              <TV />
+              <StoveKettle />
+            </>
+          }
+        />
+        <PhoneTable />
+      </ZoneGroup>
       <Clock />
-      <StoveKettle />
-      <Poodle />
       <Props />
     </group>
   )

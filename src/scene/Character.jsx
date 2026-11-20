@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { OUTFITS, world, getState, S } from '../store'
 import { floralTex } from './textures'
-import { SafeModel, useClips, FacePatch } from './ModelKit'
+import { SafeModel, useClips } from './ModelKit'
 
 /* 2등신 비닐 피규어 느낌: 매끈한 피부(roughness 낮게) + 무광 옷 */
 const SKIN = '#f0cbb0'
@@ -411,8 +411,6 @@ export function KidAvatar({ outfit }) {
             <Blob />
             <KidMotion fit={fit} outfit={outfit}>
               <primitive object={fit.object} />
-              {/* 뒷모습 모델 앞면: 살구색 얼굴 + ^ ^ 눈 + 볼터치 */}
-              <FacePatch patch={fit.patch} />
             </KidMotion>
           </>
         ) : null

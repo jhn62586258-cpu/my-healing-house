@@ -147,7 +147,9 @@ export default function Player() {
     p.z += dz * sp * dt
 
     // 충돌 (원 vs 박스) — 열린 문은 통과
+    const sittingNow = getState().sitting
     for (const c of world.colliders) {
+      if (sittingNow) break // 평상 위에 앉아 있을 땐 밀어내지 않음
       if (c[4] && world.doors[c[4]].open > 0.7) continue
       const cx = clamp(p.x, c[0], c[1])
       const cz = clamp(p.z, c[2], c[3])
@@ -241,7 +243,7 @@ export default function Player() {
       snap.current = true
     } else {
       const portrait = state.size.height > state.size.width
-      const fov = portrait ? 62 : 52
+      const fov = portrait ? 66 : 58
       if (cam.fov !== fov) {
         cam.fov = fov
         cam.updateProjectionMatrix()
@@ -250,9 +252,11 @@ export default function Player() {
       const inside = isInside(p.x, p.z)
       const desk = nearDesk(p.x, p.z)
       // 실내: 천장 들보(y≈3.0)보다 낮은 눈높이 → 서까래가 시야를 가리지 않음
-      const tD = desk ? 2.3 : inRoom(p.x, p.z) ? 2.8 : inside ? 3.2 : 4.0
-      const tH = desk ? 1.4 : inside ? 1.75 : 2.4
-      const maxH = inside ? 2.2 : 4.2
+      // 실내 기본 3인칭: 시안처럼 거실 전체가 시원하게 보이도록 뒤로·위로 (단, 들보 아래 높이)
+      const tD = desk ? 2.4 : inRoom(p.x, p.z) ? 3.4 : inside ? 4.5 : 4.4
+      // 책상 밑 아지트: 책상 상판 아래 눈높이로 낮춰 담요 위 장난감이 보이게
+      const tH = desk ? 0.78 : inRoom(p.x, p.z) ? 1.9 : inside ? 2.05 : 2.5
+      const maxH = inside ? 2.25 : 4.2
       cd.dist += (tD * (portrait ? 1.12 : 1) - cd.dist) * Math.min(1, dt * 3)
       cd.h += (clamp(tH + (cd.tilt || 0) * 2, 0.9, maxH) - cd.h) * Math.min(1, dt * 4)
       const fx2 = Math.sin(lk.tyaw)
@@ -273,7 +277,7 @@ export default function Player() {
         cam.position.copy(tmp)
         snap.current = false
       } else cam.position.lerp(tmp, 1 - Math.exp(-dt * 6))
-      look.set(p.x * S, p.y * S + (inside ? 0.62 : 0.55) + (portrait ? 0.12 : 0), p.z * S)
+      look.set(p.x * S, p.y * S + (desk ? 0.3 : inside ? 0.62 : 0.55) + (portrait ? 0.12 : 0), p.z * S)
       cam.lookAt(look)
     }
   })

@@ -8,6 +8,7 @@ import { Box, Cyl, Sph, Cap, Rod, roundBoxGeo, roundCylGeo } from './parts'
 import { Dog } from './Dogs'
 import { SpeechBubble, Hearts, SoundBadge } from './Fx'
 import { Real } from './ModelKit'
+import { ZoneGroup, PyeongsangSet, DoghouseSet, PersimmonTreeSet, MailboxSet } from './Sets'
 import { pick } from './Living'
 
 const BASE = { x0: -12.6, x1: 9.6, z0: -10.4, z1: 7.4 }
@@ -317,7 +318,7 @@ function RubberTubs() {
   const red = '#b8452f'
   return (
     <group>
-      <group position={[-6.6, 0, -5.3]}>
+      <group position={[-9.6, 0, -5.6]}>
         <mesh position={[0, 0.17, 0]} geometry={roundCylGeo(0.46, 0.38, 0.34, 28, 0.05)}>
           <meshStandardMaterial color={red} roughness={0.65} />
         </mesh>
@@ -627,14 +628,38 @@ export default function Yard() {
       <Walls />
       <FlowerBed x0={-11.4} x1={-8.7} z0={5.55} z1={6.35} seed={3} />
       <FlowerBed x0={-6.45} x1={-4.1} z0={5.55} z1={6.35} seed={7} />
-      <Veggie />
-      <Pyeongsang />
-      <Mailbox />
-      <DoghouseNureongi />
+      {/* 텃밭은 감나무 세트 자리를 비켜 장독대 옆으로 */}
+      <group position={[-0.05, 0, -1.55]}>
+        <Veggie />
+      </group>
+      {/* 앞마당 세트 (구역: 앞마당) — 세트 파일이 없으면 예전 도형을 같은 자리로 옮겨서 대체 */}
+      <ZoneGroup zone="yard">
+        <PyeongsangSet
+          legacy={
+            <group position={[2.4, 0, -6.75]}>
+              <Pyeongsang />
+            </group>
+          }
+        />
+        <DoghouseSet
+          legacy={
+            <group position={[3.9, 0, -0.1]}>
+              <DoghouseNureongi />
+            </group>
+          }
+        />
+        <PersimmonTreeSet
+          legacy={
+            <group position={[-0.2, 0, 5.7]}>
+              <PersimmonTree />
+              <Baekgu />
+            </group>
+          }
+        />
+        <MailboxSet legacy={<Mailbox />} />
+      </ZoneGroup>
       <RubberTubs />
       <Jangdokdae />
-      <PersimmonTree />
-      <Baekgu />
       <SquirrelLeaves />
       <Laundry />
       <WindBell />

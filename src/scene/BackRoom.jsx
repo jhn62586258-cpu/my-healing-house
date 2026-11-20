@@ -7,6 +7,7 @@ import { plaid } from './textures'
 import { Box, Sph, roundBoxGeo } from './parts'
 import { setFade } from './House'
 import { SoundBadge } from './Fx'
+import { ZoneGroup, DeskHideoutSet, BedSet, BookshelfSet } from './Sets'
 
 const F = FLOOR
 const DESK_Y = F + 1.42
@@ -242,15 +243,41 @@ function Bedding() {
   )
 }
 
+/* 동쪽 창 (책상 위 창가) */
+function RoomWindow() {
+  return (
+    <group position={[8.9, 2.15, -0.6]} rotation-y={-Math.PI / 2}>
+      <Box p={[0, 0, 0]} s={[1.3, 0.85, 0.05]} c="#4a3020" />
+      <mesh position={[0, 0, 0.03]}>
+        <planeGeometry args={[1.18, 0.73]} />
+        <meshBasicMaterial color="#cfe0d6" toneMapped={false} />
+      </mesh>
+      <Box p={[0, 0, 0.04]} s={[0.04, 0.8, 0.03]} c="#4a3020" />
+    </group>
+  )
+}
+
 export default function BackRoom() {
   return (
     <group>
-      <DeskFort />
-      <BubbleWrap />
-      <Keycaps />
-      <Squishy />
-      <EarPick />
-      <Bedding />
+      {/* 내 방 아지트 세트 (구역: 내 방) — 세트 파일이 없으면 예전 도형으로 대체 */}
+      <ZoneGroup zone="room">
+        <DeskHideoutSet
+          legacy={
+            <>
+              <DeskFort />
+              <BubbleWrap />
+              <Keycaps />
+              <Squishy />
+              <EarPick />
+            </>
+          }
+        />
+        <BedSet legacy={<Bedding />} />
+        <BookshelfSet />
+      </ZoneGroup>
+      <RoomWindow />
+      <pointLight position={[6.8, 2.5, -0.8]} color="#ffe6c0" intensity={1.6} distance={6} decay={1.6} />
     </group>
   )
 }
